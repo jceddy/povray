@@ -338,15 +338,7 @@ FUNCTION_PTR Parser::Parse_DeclareFunction(TokenId *token_id, const char *fn_nam
 		if (tempObjects.size() != 1)
 			Error("object or object identifier expected.");
 		function.private_data = reinterpret_cast<void *>(tempObjects[0]);
-/*
-if (Parse_Comma()) {
-pattern->t_min = Parse_Float();
-Parse_Comma();
-pattern->alpha = Parse_Float();
-Parse_Comma();
-pattern->num_iterations = Parse_Int("num_iterations");
-}
-*/
+
 		Parse_End();
 	}
     else if(CurrentTrueTokenId() == STRING_LITERAL_TOKEN)

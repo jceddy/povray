@@ -424,6 +424,7 @@
     <ClCompile Include="..\..\source\core\math\hypercomplex.cpp" />
     <ClCompile Include="..\..\source\core\math\jitter.cpp" />
     <ClCompile Include="..\..\source\core\math\matrix.cpp" />
+    <ClCompile Include="..\..\source\core\math\minimumdistance.cpp" />
     <ClCompile Include="..\..\source\core\math\polynomialsolver.cpp" />
     <ClCompile Include="..\..\source\core\math\quaternion.cpp" />
     <ClCompile Include="..\..\source\core\math\randcosweighted.cpp" />
@@ -512,6 +513,7 @@
     <ClInclude Include="..\..\source\core\math\hypercomplex.h" />
     <ClInclude Include="..\..\source\core\math\jitter.h" />
     <ClInclude Include="..\..\source\core\math\matrix.h" />
+    <ClInclude Include="..\..\source\core\math\minimumdistance.h" />
     <ClInclude Include="..\..\source\core\math\polynomialsolver.h" />
     <ClInclude Include="..\..\source\core\math\quaternion.h" />
     <ClInclude Include="..\..\source\core\math\randcosweighted.h" />
