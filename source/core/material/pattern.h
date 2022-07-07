@@ -42,7 +42,7 @@
 
 // C++ variants of C standard header files
 // C++ standard header files
-//  (none at the moment)
+#include <random>
 
 // POV-Ray header files (base module)
 #include "base/fileinputoutput_fwd.h"
@@ -616,6 +616,26 @@ struct ObjectPattern final : public DiscretePattern
     virtual DBL Evaluate(const Vector3d& EPoint, const Intersection *pIsection, const Ray *pRay, TraceThreadData *pThread) const override;
     virtual ColourBlendMapConstPtr GetDefaultBlendMap() const override;
     virtual unsigned int NumDiscreteBlendMapEntries() const override;
+};
+
+/// Implements the `minimum_distance` pattern.
+struct MinimumDistancePattern final : public ContinuousPattern
+{
+	ObjectPtr pObject;
+	DBL t_min = .1;
+	DBL alpha = 0.2;
+	int num_iterations = 10;
+
+	MinimumDistancePattern();
+	MinimumDistancePattern(const MinimumDistancePattern& obj);
+	virtual ~MinimumDistancePattern() override;
+	virtual PatternPtr Clone() const override { return BasicPattern::Clone(*this); }
+	virtual DBL EvaluateRaw(const Vector3d& EPoint, const Intersection *pIsection, const Ray *pRay, TraceThreadData *pThread) const override;
+
+	// helper functions for simulated annealing
+	static bool FindInitialSolution(const ObjectPtr pObject, const Vector3d& EPoint, const Intersection *pIsection, const Ray *pRay, TraceThreadData *pThread, DBL &phi, DBL &theta, DBL &mdist);
+	static bool CheckSolution(const ObjectPtr pObject, const Vector3d& EPoint, DBL phi, DBL theta, DBL &dist, TraceThreadData *pThread);
+	static void GetNeighbor(std::uniform_real_distribution<double> smallStepDistribution, std::default_random_engine &re, DBL currPhi, DBL currTheta, DBL &phi, DBL &theta);
 };
 
 /// Implements the `onion` pattern.

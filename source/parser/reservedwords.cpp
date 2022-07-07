@@ -350,6 +350,7 @@ const RESERVED_WORD Reserved_Words[] = {
     { METRIC_TOKEN,                 "metric" },
     { MIN_TOKEN,                    "min" },
     { MIN_EXTENT_TOKEN,             "min_extent" },
+	{ MINIMUM_DISTANCE_TOKEN,       "minimum_distance" },
     { MINIMUM_REUSE_TOKEN,          "minimum_reuse" },
     { MIXED_TOKEN,                  "mixed" },
     { MM_PER_UNIT_TOKEN,            "mm_per_unit" },

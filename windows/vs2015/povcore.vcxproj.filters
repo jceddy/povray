@@ -278,6 +278,9 @@
     <ClCompile Include="..\..\source\core\support\cracklecache.cpp">
       <Filter>Core Source\Support</Filter>
     </ClCompile>
+    <ClCompile Include="simulatedannealing.cpp">
+      <Filter>Core Source\Math</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\source\core\configcore.h">
@@ -546,6 +549,9 @@
     </ClInclude>
     <ClInclude Include="..\..\source\core\support\cracklecache.h">
       <Filter>Core Headers\Support</Filter>
+    </ClInclude>
+    <ClInclude Include="simulatedannealing.h">
+      <Filter>Core Headers\Math</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

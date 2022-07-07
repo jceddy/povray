@@ -66,6 +66,8 @@ namespace pov_parser
 
 using namespace pov;
 
+using std::vector;
+
 /*****************************************************************************
 *
 * FUNCTION
@@ -321,6 +323,32 @@ FUNCTION_PTR Parser::Parse_DeclareFunction(TokenId *token_id, const char *fn_nam
         Parse_End();
         Post_Pigment(reinterpret_cast<PIGMENT *>(function.private_data));
     }
+	else if (CurrentTrueTokenId() == OBJECT_TOKEN) {
+		if (function.parameter_cnt != 0)
+			Error("Function parameters for object functions are not allowed.");
+
+		expression = FNSyntax_GetTrapExpression(79); // 79 refers to POVFPU_TrapTable[79] = f_object [trf]
+
+		function.private_copy_method = (FNCODE_PRIVATE_COPY_METHOD)Copy_Object;
+		function.private_destroy_method = (FNCODE_PRIVATE_DESTROY_METHOD)(static_cast<void (*)(ObjectPtr)>(Destroy_Object));
+
+		Parse_Begin();
+		vector<ObjectPtr> tempObjects;
+		Parse_Bound_Clip(tempObjects, false);
+		if (tempObjects.size() != 1)
+			Error("object or object identifier expected.");
+		function.private_data = reinterpret_cast<void *>(tempObjects[0]);
+/*
+if (Parse_Comma()) {
+pattern->t_min = Parse_Float();
+Parse_Comma();
+pattern->alpha = Parse_Float();
+Parse_Comma();
+pattern->num_iterations = Parse_Int("num_iterations");
+}
+*/
+		Parse_End();
+	}
     else if(CurrentTrueTokenId() == STRING_LITERAL_TOKEN)
     {
 #if (DEBUG_FLOATFUNCTION == 1)

@@ -619,6 +619,26 @@ ColourBlendMapConstPtr ObjectPattern::GetDefaultBlendMap() const { return gpDefa
 unsigned int ObjectPattern::NumDiscreteBlendMapEntries() const { return 2; }
 
 
+MinimumDistancePattern::MinimumDistancePattern() :
+	pObject(nullptr)
+{}
+
+MinimumDistancePattern::MinimumDistancePattern(const MinimumDistancePattern& obj) :
+	ContinuousPattern(obj),
+	pObject(nullptr)
+{
+	if (obj.pObject)
+		pObject = Copy_Object(obj.pObject);
+}
+
+MinimumDistancePattern::~MinimumDistancePattern()
+{
+	if (pObject)
+		Destroy_Object(pObject);
+}
+
+
+
 PavementPattern::PavementPattern() : Side(3), Tile(1), Number(1), Exterior(0), Interior(0), Form(0) {}
 
 
@@ -7899,6 +7919,198 @@ DBL ObjectPattern::Evaluate(const Vector3d& EPoint, const Intersection *pIsectio
     }
 
     return 0.0;
+}
+
+/*****************************************************************************
+*
+* FUNCTION
+*
+*   minimum_distance_pattern
+*
+* INPUT
+*
+*   EPoint -- The point in 3d space at which the pattern
+*   is evaluated.
+*   TPat   -- Texture pattern struct
+*
+* OUTPUT
+*
+* RETURNS
+*
+*   DBL value in the range 0.0 to 1.0
+*
+* AUTHOR
+*
+* Joseph Eddy
+*
+* DESCRIPTION
+*
+* CHANGES
+*
+******************************************************************************/
+
+DBL MinimumDistancePattern::EvaluateRaw(const Vector3d& EPoint, const Intersection *pIsection, const Ray *pRay, TraceThreadData *pThread) const
+{
+	std::uniform_real_distribution<double> smallStepDistribution(0.0 - M_PI / 360.0, M_PI / 360.0);
+	std::uniform_real_distribution<double> oneDistribution(0.0, 1.0);
+	std::default_random_engine re;
+
+	DBL t_min_local = t_min;
+	DBL alpha_local = alpha;
+	int num_iterations_local = num_iterations;
+
+	if (t_min_local < .0001) { t_min_local = .0001; }
+	if (t_min_local > .1) { t_min_local = .1; }
+	if (alpha_local < 0.1) { alpha_local = 0.1; }
+	if (alpha_local > 0.9) { alpha_local = 0.9; }
+	if (num_iterations_local > 100) { num_iterations_local = 100; }
+	if (num_iterations_local < 10) { num_iterations_local = 10; }
+
+	DBL t = 1;
+	DBL min, phi, theta, dist, newPhi, newTheta, newDist;
+
+	if (pObject != nullptr)
+	{
+		if (!FindInitialSolution(pObject, EPoint, pIsection, pRay, pThread, phi, theta, dist)) {
+			return 1.0;
+		}
+
+		min = dist;
+
+		while (t > t_min_local) {
+			for (int i = 0; i < num_iterations_local; i++) {
+				if (dist < min) {
+					min = dist;
+				}
+
+				GetNeighbor(smallStepDistribution, re, phi, theta, newPhi, newTheta);
+				if (CheckSolution(pObject, EPoint, newPhi, newTheta, newDist, pThread)) {
+					DBL ap = exp((dist - newDist) / t);
+					if (ap > oneDistribution(re)) {
+						phi = newPhi;
+						theta = newTheta;
+						dist = newDist;
+					}
+				}
+			}
+
+			t *= alpha_local;
+		}
+
+		if (Inside_Object(EPoint, pObject, pThread)) {
+			return 0.5 - (min > 0.5 ? 0.5 : min);
+		}
+		else {
+			return (min > 0.5 ? 0.5 : min) + 0.5;
+		}
+	}
+
+	return 1.0;
+}
+
+bool MinimumDistancePattern::FindInitialSolution(const ObjectPtr pObject, const Vector3d& EPoint, const Intersection *pIsection, const Ray *pRay, TraceThreadData *pThread, DBL &phi, DBL &theta, DBL &mdist) {
+	bool depthFound = false;
+	Vector3d direction;
+	TraceTicket ticket(1, 0.0);
+	Ray ray(ticket, EPoint, direction);
+	Intersection intersection;
+	int slices = 8;
+	DBL minPhi, minTheta;
+
+	direction[X] = 0;
+	direction[Y] = 1;
+	direction[Z] = 0;
+
+	ray.Direction = direction;
+	if (Find_Intersection(&intersection, pObject, ray, pThread)) {
+		if (!depthFound || (intersection.Depth < mdist)) {
+			mdist = intersection.Depth;
+			minPhi = 0.0;
+			minTheta = 0.0;
+			depthFound = true;
+		}
+	}
+
+	for (int i = 0; i < slices - 1; i++) {
+		DBL phi = M_PI * double(i + 1) / double(slices);
+		for (int j = 0; j < slices; j++) {
+			DBL theta = 2.0 * M_PI * double(j) / double(slices);
+			DBL x = std::sin(phi) * std::cos(theta);
+			DBL y = std::cos(phi);
+			DBL z = std::sin(phi) * std::sin(theta);
+
+			direction[X] = x;
+			direction[Y] = y;
+			direction[Z] = z;
+
+			ray.Direction = direction;
+			if (Find_Intersection(&intersection, pObject, ray, pThread)) {
+				if (!depthFound || (intersection.Depth < mdist)) {
+					mdist = intersection.Depth;
+					minPhi = phi;
+					minTheta = theta;
+					depthFound = true;
+				}
+			}
+		}
+	}
+
+	direction[X] = 0;
+	direction[Y] = -1;
+	direction[Z] = 0;
+
+	ray.Direction = direction;
+	if (Find_Intersection(&intersection, pObject, ray, pThread)) {
+		if (!depthFound || (intersection.Depth < mdist)) {
+			minPhi = M_PI;
+			minTheta = 0.0;
+			mdist = intersection.Depth;
+			depthFound = true;
+		}
+	}
+
+	phi = minPhi;
+	theta = minTheta;
+
+	return depthFound;
+}
+
+bool MinimumDistancePattern::CheckSolution(const ObjectPtr pObject, const Vector3d& EPoint, DBL phi, DBL theta, DBL &dist, TraceThreadData *pThread) {
+	if (pObject != nullptr) {
+		DBL x = std::sin(phi) * std::cos(theta);
+		DBL y = std::cos(phi);
+		DBL z = std::sin(phi) * std::cos(theta);
+
+		Vector3d direction(x, y, z);
+		TraceTicket ticket(0, 1.0);
+		Ray checkRay(ticket, EPoint, direction);
+		Intersection intersection;
+
+		if (Find_Intersection(&intersection, pObject, checkRay, pThread)) {
+			dist = intersection.Depth;
+			return true;
+		}
+	}
+
+	return false;
+}
+
+void MinimumDistancePattern::GetNeighbor(std::uniform_real_distribution<double> smallStepDistribution, std::default_random_engine &re, DBL currPhi, DBL currTheta, DBL &phi, DBL &theta) {
+	phi = currPhi + smallStepDistribution(re);
+	theta = currTheta + smallStepDistribution(re);
+
+	if (phi < 0.0) {
+		phi = 0 - phi;
+	}
+	if (phi > M_PI) {
+		phi = M_PI - phi;
+	}
+	if (theta < 0.0) {
+		theta = theta + 2.0 * M_PI;
+	}
+	if (theta > 2.0 * M_PI) {
+		theta = theta - 2.0 * M_PI;
+	}
 }
 
 /*****************************************************************************

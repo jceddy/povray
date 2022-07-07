@@ -125,8 +125,7 @@
 ///     undesired interference between the repository and your local changes.
 ///
 #ifndef BUILT_BY
-    #define BUILT_BY "YOUR NAME (YOUR EMAIL)"
-    #error "Please fill in BUILT_BY, then remove this line"
+    #define BUILT_BY "Joseph Eddy (jceddy@gmail.com)"
 #endif
 
 /// @}
