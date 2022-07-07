@@ -56,6 +56,7 @@
 #include "core/material/warp.h"
 #include "core/math/matrix.h"
 #include "core/math/spline.h"
+#include "core/math/simulatedannealing.h"
 #include "core/scene/scenedata.h"
 #include "core/scene/tracethreaddata.h"
 
@@ -178,7 +179,7 @@ DBL f_witch_of_agnesi_2d(FPUContext *ctx, DBL *ptr, unsigned int fn); // 75
 DBL f_noise3d(FPUContext *ctx, DBL *ptr, unsigned int fn); // 76
 DBL f_pattern(FPUContext *ctx, DBL *ptr, unsigned int fn); // 77
 DBL f_noise_generator(FPUContext *ctx, DBL *ptr, unsigned int fn); // 78
-DBL f_object(FPUContext *ctx, DBL *ptr, unsigned int fn); // 79
+DBL f_minimum_distance(FPUContext *ctx, DBL *ptr, unsigned int fn); // 79
 
 void f_pigment(FPUContext *ctx, DBL *ptr, unsigned int fn, unsigned int sp); // 0
 void f_transform(FPUContext *ctx, DBL *ptr, unsigned int fn, unsigned int sp); // 1
@@ -270,7 +271,7 @@ const Trap POVFPU_TrapTable[] =
     { f_noise3d,                 0 + 3 }, // 76
     { f_pattern,                 0 + 3 }, // 77
     { f_noise_generator,         1 + 3 }, // 78
-	{ f_object,                  0 + 3 }, // 79
+	{ f_minimum_distance,        0 + 3 }, // 79
     { nullptr, 0 }
 };
 
@@ -1223,67 +1224,32 @@ DBL f_noise_generator(FPUContext *ctx, DBL *ptr, unsigned int) // 78
     return Noise(Vec, ngen);
 }
 
-DBL f_object(FPUContext *ctx, DBL *ptr, unsigned int fn) // 79
+DBL f_minimum_distance(FPUContext *ctx, DBL *ptr, unsigned int fn) // 79
 {
 	Vector3d Vec = Vector3d(PARAM_X, PARAM_Y, PARAM_Z);
 	FunctionCode *f = ctx->functionvm->GetFunction(fn);
 
 	if (f->private_data == nullptr)
-		return 0.0;
+		return 20000000000.0;
 
-	return Evaluate_MinimumDistance(reinterpret_cast<const ObjectPtr>(f->private_data), Vec, nullptr, nullptr, ctx->threaddata);
-}
-
-DBL Evaluate_MinimumDistance(const ObjectPtr pObject, const Vector3d& EPoint, const Intersection *pIsection, const Ray *pRay, TraceThreadData *pThread)
-{
-	std::uniform_real_distribution<double> smallStepDistribution(0.0 - M_PI / 360.0, M_PI / 360.0);
-	std::uniform_real_distribution<double> oneDistribution(0.0, 1.0);
-	std::default_random_engine re;
-	
+	ObjectPtr pObject = reinterpret_cast<const ObjectPtr>(f->private_data);
 	DBL t_min_local = .1;
 	DBL alpha_local = 0.2;
 	int num_iterations_local = 10;
 
-	DBL t = 1;
-	DBL min, phi, theta, dist, newPhi, newTheta, newDist;
+	MinimimDistanceSolver solver;
+	solver.minimumTemperature = t_min_local;
+	solver.alpha = alpha_local;
+	solver.numIterations = num_iterations_local;
+	MinimumDistanceInput input = MinimumDistanceInput(Vec, pObject, ctx->threaddata);
+	SimulatedAnnealingSolution<MinimumDistanceInput, MinimumDistanceState, DBL> solution = solver.Solve(input);
 
-	if (pObject != nullptr)
-	{
-		if (!MinimumDistancePattern::FindInitialSolution(pObject, EPoint, pIsection, pRay, pThread, phi, theta, dist)) {
-			return 20000000000.0;
-		}
-
-		min = dist;
-
-		while (t > t_min_local) {
-			for (int i = 0; i < num_iterations_local; i++) {
-				if (dist < min) {
-					min = dist;
-				}
-
-				MinimumDistancePattern::GetNeighbor(smallStepDistribution, re, phi, theta, newPhi, newTheta);
-				if (MinimumDistancePattern::CheckSolution(pObject, EPoint, newPhi, newTheta, newDist, pThread)) {
-					DBL ap = exp((dist - newDist) / t);
-					if (ap > oneDistribution(re)) {
-						phi = newPhi;
-						theta = newTheta;
-						dist = newDist;
-					}
-				}
-			}
-
-			t *= alpha_local;
-		}
-
-		if (Inside_Object(EPoint, pObject, pThread)) {
-			return 0.0 - min;
-		}
-		else {
-			return min;
-		}
+	if (Inside_Object(Vec, pObject, ctx->threaddata)) {
+		return 0.0 - solution.output;
 	}
-
-	return 20000000000.0;
+	else {
+		return solution.output;
+	}
 }
 
 void f_pigment(FPUContext *ctx, DBL *ptr, unsigned int fn, unsigned int sp) // 0

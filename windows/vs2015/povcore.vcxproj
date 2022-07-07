@@ -428,6 +428,7 @@
     <ClCompile Include="..\..\source\core\math\quaternion.cpp" />
     <ClCompile Include="..\..\source\core\math\randcosweighted.cpp" />
     <ClCompile Include="..\..\source\core\math\randomsequence.cpp" />
+    <ClCompile Include="..\..\source\core\math\simulatedannealing.cpp" />
     <ClCompile Include="..\..\source\core\math\spline.cpp" />
     <ClCompile Include="..\..\source\core\math\vector.cpp" />
     <ClCompile Include="..\..\source\core\render\ray.cpp" />
@@ -477,7 +478,6 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release-SSE2|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release-AVX|x64'">Create</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="simulatedannealing.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\source\core\bounding\bounding.h" />
@@ -517,6 +517,7 @@
     <ClInclude Include="..\..\source\core\math\randcosweighted.h" />
     <ClInclude Include="..\..\source\core\math\randomsequence.h" />
     <ClInclude Include="..\..\source\core\math\randomsequence_fwd.h" />
+    <ClInclude Include="..\..\source\core\math\simulatedannealing.h" />
     <ClInclude Include="..\..\source\core\math\spline.h" />
     <ClInclude Include="..\..\source\core\math\vector.h" />
     <ClInclude Include="..\..\source\core\math\vector_fwd.h" />
@@ -569,7 +570,6 @@
     <ClInclude Include="..\..\source\core\precomp.h" />
     <ClInclude Include="..\..\source\core\support\statistics_fwd.h" />
     <ClInclude Include="..\povconfig\syspovconfigcore.h" />
-    <ClInclude Include="simulatedannealing.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

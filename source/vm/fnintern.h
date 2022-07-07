@@ -75,8 +75,6 @@ extern const TrapS POVFPU_TrapSTable[];
 
 extern const unsigned int POVFPU_TrapTableSize;
 extern const unsigned int POVFPU_TrapSTableSize;
-
-DBL Evaluate_MinimumDistance(const ObjectPtr pObject, const Vector3d& EPoint, const Intersection *pIsection, const Ray *pRay, TraceThreadData *pThread);
 }
 // end of namespace pov
 
