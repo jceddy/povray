@@ -59,6 +59,7 @@
 #include "core/math/simulatedannealing.h"
 #include "core/scene/scenedata.h"
 #include "core/scene/tracethreaddata.h"
+#include "core/shape/mesh.h"
 
 // POV-Ray header files (VM module)
 #include "vm/fnpovfpu.h"
@@ -1233,6 +1234,11 @@ DBL f_minimum_distance(FPUContext *ctx, DBL *ptr, unsigned int fn) // 79
 		return 20000000000.0;
 
 	ObjectPtr pObject = reinterpret_cast<const ObjectPtr>(f->private_data);
+
+	if (Mesh* mesh = dynamic_cast<Mesh*>(pObject)) {
+		BBOX_TREE *bbox_tree = mesh->Data->Tree;
+	}
+
 	DBL t_min_local = .1;
 	DBL alpha_local = 0.2;
 	int num_iterations_local = 10;

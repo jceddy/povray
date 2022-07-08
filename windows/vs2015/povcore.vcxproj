@@ -423,6 +423,7 @@
     <ClCompile Include="..\..\source\core\math\chi2.cpp" />
     <ClCompile Include="..\..\source\core\math\hypercomplex.cpp" />
     <ClCompile Include="..\..\source\core\math\jitter.cpp" />
+    <ClCompile Include="..\..\source\core\math\kdtree.cpp" />
     <ClCompile Include="..\..\source\core\math\matrix.cpp" />
     <ClCompile Include="..\..\source\core\math\minimumdistance.cpp" />
     <ClCompile Include="..\..\source\core\math\polynomialsolver.cpp" />
@@ -512,6 +513,7 @@
     <ClInclude Include="..\..\source\core\math\chi2.h" />
     <ClInclude Include="..\..\source\core\math\hypercomplex.h" />
     <ClInclude Include="..\..\source\core\math\jitter.h" />
+    <ClInclude Include="..\..\source\core\math\kdtree.h" />
     <ClInclude Include="..\..\source\core\math\matrix.h" />
     <ClInclude Include="..\..\source\core\math\minimumdistance.h" />
     <ClInclude Include="..\..\source\core\math\polynomialsolver.h" />
