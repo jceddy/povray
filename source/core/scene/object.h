@@ -281,6 +281,11 @@ class ObjectBase
         ///
         virtual bool IsOpaque() const;
 
+		/// Get the proximity of a point to the object.
+		/// pointOnObject will be populated with the nearest point on the object's surface to the samplePoint.
+		/// The method returns the proximity (distance), which is the length of the vector from samplePoint to pointOnObject.
+		virtual DBL Proximity(Vector3d &pointOnObject, const Vector3d &samplePoint, TraceThreadData *threaddata);
+
     protected:
 
         explicit ObjectBase(const ObjectBase&) { }

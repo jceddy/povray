@@ -53,7 +53,7 @@
 
 // POV-Ray header files (base module)
 // POV-Ray header files (core module)
-#include "core/shape/mesh.h"
+#include "core/math/vector.h"
 
 using indexArr = std::vector<int>;
 using pointIndex = typename std::pair<pov::Vector3d, int>;
@@ -115,8 +115,8 @@ public:
 	int idx;
 	explicit comparer(int idx_);
 	inline bool compare_idx(
-		const std::pair< Vector3d, int > &,  //
-		const std::pair< Vector3d, int > &   //
+		const pointIndex &,  //
+		const pointIndex &   //
 	);
 };
 

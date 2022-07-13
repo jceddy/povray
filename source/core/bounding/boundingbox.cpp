@@ -429,6 +429,41 @@ void Build_Bounding_Slabs(BBOX_TREE **Root, vector<ObjectPtr>& objects, unsigned
         delete[] Infinite;
 }
 
+bool Intersect_BBox_Tree(std::vector<BBOX_TREE*>& Boxes, BBOX_TREE *Root, const BoundingBox& Box)
+{
+	BBOX_TREE *Node;
+	std::vector<BBOX_TREE*> CheckNodes;
+	CheckNodes.push_back(Root);
+	bool found = false;
+	Vector3d mins, maxs;
+	Make_min_max_from_BBox(mins, maxs, Box);
+
+	while (!CheckNodes.empty()) {
+		Vector3d nodemins, nodemaxs;
+		Node = CheckNodes.back();
+		CheckNodes.pop_back();
+
+		Make_min_max_from_BBox(nodemins, nodemaxs, Node->BBox);
+		if (maxs.x() >= nodemins.x() && nodemaxs.x() >= mins.x() &&
+			maxs.x() >= nodemins.x() && nodemaxs.x() >= mins.x() &&
+			maxs.x() >= nodemins.x() && nodemaxs.x() >= mins.x()) {
+
+			if (Node->Entries) {
+				for (int i = 0; i < Node->Entries; i++) {
+					CheckNodes.push_back(Node->Node[i]);
+				}
+			}
+			else {
+				Boxes.push_back(Node);
+			}
+
+			found = true;
+		}
+	}
+
+	return found;
+}
+
 bool Intersect_BBox_Tree(BBoxPriorityQueue& pqueue, const BBOX_TREE *Root, const Ray& ray, Intersection *Best_Intersection, TraceThreadData *Thread)
 {
     int i, found;

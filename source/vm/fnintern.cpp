@@ -54,6 +54,7 @@
 #include "core/material/pattern.h"
 #include "core/material/pigment.h"
 #include "core/material/warp.h"
+#include "core/math/kdtree.h"
 #include "core/math/matrix.h"
 #include "core/math/spline.h"
 #include "core/math/simulatedannealing.h"
@@ -95,7 +96,6 @@ using std::min;
 #define ROT2D(p,d,ang) if (p>0) {x2=sqrt(x2+PARAM_Z*PARAM_Z)- d; th=ang*M_PI_180; \
     if (th!=0){ PARAM_X= x2*cos(th)-PARAM_Y*sin(th); PARAM_Y= x2*sin(th)+PARAM_Y*cos(th);} else PARAM_X=x2; \
     x2=PARAM_X*PARAM_X; y2=PARAM_Y*PARAM_Y;}
-
 
 /*****************************************************************************
 * Global functions
@@ -1235,11 +1235,10 @@ DBL f_minimum_distance(FPUContext *ctx, DBL *ptr, unsigned int fn) // 79
 
 	ObjectPtr pObject = reinterpret_cast<const ObjectPtr>(f->private_data);
 
-	if (Mesh* mesh = dynamic_cast<Mesh*>(pObject)) {
-		BBOX_TREE *bbox_tree = mesh->Data->Tree;
-	}
+	Vector3d pointOnObject;
+	return pObject->Proximity(pointOnObject, Vec, ctx->threaddata);
 
-	DBL t_min_local = .1;
+	/*DBL t_min_local = .1;
 	DBL alpha_local = 0.2;
 	int num_iterations_local = 10;
 
@@ -1248,6 +1247,7 @@ DBL f_minimum_distance(FPUContext *ctx, DBL *ptr, unsigned int fn) // 79
 	solver.alpha = alpha_local;
 	solver.numIterations = num_iterations_local;
 	MinimumDistanceInput input = MinimumDistanceInput(Vec, pObject, ctx->threaddata);
+
 	SimulatedAnnealingSolution<MinimumDistanceInput, MinimumDistanceState, DBL> solution = solver.Solve(input);
 
 	if (Inside_Object(Vec, pObject, ctx->threaddata)) {
@@ -1255,7 +1255,7 @@ DBL f_minimum_distance(FPUContext *ctx, DBL *ptr, unsigned int fn) // 79
 	}
 	else {
 		return solution.output;
-	}
+	}*/
 }
 
 void f_pigment(FPUContext *ctx, DBL *ptr, unsigned int fn, unsigned int sp) // 0

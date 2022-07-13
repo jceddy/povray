@@ -92,9 +92,19 @@ namespace pov
 		object = obj;
 		initialSolutionQuality = initQuality;
 		traceThreadData = tData;
+		initialDirProvided = false;
 		
 		if (initialSolutionQuality < 1) { initialSolutionQuality = 1; }
 		if (initialSolutionQuality > 6) { initialSolutionQuality = 6; }
+	}
+
+	MinimumDistanceInput::MinimumDistanceInput(Vector3d pt, ObjectPtr obj, TraceThreadData *tData, DBL theta, DBL phi) {
+		point = pt;
+		object = obj;
+		traceThreadData = tData;
+		initialDirProvided = true;
+		initialTheta = theta;
+		initialPhi = phi;
 	}
 
 	MinimumDistanceState::MinimumDistanceState() { }
@@ -107,70 +117,91 @@ namespace pov
 	MinimumDistanceSolution::MinimumDistanceSolution(DBL val, const MinimumDistanceInput &in, const MinimumDistanceState &st, DBL out) : SimulatedAnnealingSolution<MinimumDistanceInput, MinimumDistanceState, DBL>(val, in, st, out) { }
 
 	SimulatedAnnealingSolution<MinimumDistanceInput, MinimumDistanceState, DBL> MinimimDistanceSolver::FindInitialSolution(const MinimumDistanceInput &in) {
-		bool depthFound = false;
-		Vector3d direction;
-		TraceTicket ticket(1, 0.0);
-		Ray ray(ticket, in.point, direction);
-		Intersection intersection;
-		int slices = pow(2, in.initialSolutionQuality + 1);
-		DBL minPhi, minTheta;
-		DBL mdist = maxDistance;
+		if (in.initialDirProvided) {
+			DBL x = std::sin(in.initialPhi) * std::cos(in.initialTheta);
+			DBL y = std::cos(in.initialPhi);
+			DBL z = std::sin(in.initialPhi) * std::sin(in.initialTheta);
 
-		direction[X] = 0;
-		direction[Y] = 1;
-		direction[Z] = 0;
+			TraceTicket ticket(1, 0.0);
+			Vector3d direction = Vector3d(x, y, z);
+			Ray ray(ticket, in.point, direction);
+			Intersection intersection;
 
-		ray.Direction = direction;
-		if (Find_Intersection(&intersection, in.object, ray, in.traceThreadData)) {
-			if (!depthFound || (intersection.Depth < mdist)) {
-				mdist = intersection.Depth;
-				minPhi = 0.0;
-				minTheta = 0.0;
-				depthFound = true;
+			MinimumDistanceState state = MinimumDistanceState(in.initialPhi, in.initialTheta);
+
+			if (Find_Intersection(&intersection, in.object, ray, in.traceThreadData)) {
+				return MinimumDistanceSolution(intersection.Depth, in, state, intersection.Depth);
+			}
+			else {
+				return MinimumDistanceSolution(maxDistance, in, state, maxDistance);
 			}
 		}
+		else {
+			bool depthFound = false;
+			Vector3d direction;
+			TraceTicket ticket(1, 0.0);
+			Ray ray(ticket, in.point, direction);
+			Intersection intersection;
+			int slices = pow(2, in.initialSolutionQuality + 1);
+			DBL minPhi, minTheta;
+			DBL mdist = maxDistance;
 
-		for (int i = 0; i < slices - 1; i++) {
-			DBL phi = M_PI * double(i + 1) / double(slices);
-			for (int j = 0; j < slices; j++) {
-				DBL theta = 2.0 * M_PI * double(j) / double(slices);
-				DBL x = std::sin(phi) * std::cos(theta);
-				DBL y = std::cos(phi);
-				DBL z = std::sin(phi) * std::sin(theta);
+			direction[X] = 0;
+			direction[Y] = 1;
+			direction[Z] = 0;
 
-				direction[X] = x;
-				direction[Y] = y;
-				direction[Z] = z;
+			ray.Direction = direction;
+			if (Find_Intersection(&intersection, in.object, ray, in.traceThreadData)) {
+				if (!depthFound || (intersection.Depth < mdist)) {
+					mdist = intersection.Depth;
+					minPhi = 0.0;
+					minTheta = 0.0;
+					depthFound = true;
+				}
+			}
 
-				ray.Direction = direction;
-				if (Find_Intersection(&intersection, in.object, ray, in.traceThreadData)) {
-					if (!depthFound || (intersection.Depth < mdist)) {
-						mdist = intersection.Depth;
-						minPhi = phi;
-						minTheta = theta;
-						depthFound = true;
+			for (int i = 0; i < slices - 1; i++) {
+				DBL phi = M_PI * double(i + 1) / double(slices);
+				for (int j = 0; j < slices; j++) {
+					DBL theta = 2.0 * M_PI * double(j) / double(slices);
+					DBL x = std::sin(phi) * std::cos(theta);
+					DBL y = std::cos(phi);
+					DBL z = std::sin(phi) * std::sin(theta);
+
+					direction[X] = x;
+					direction[Y] = y;
+					direction[Z] = z;
+
+					ray.Direction = direction;
+					if (Find_Intersection(&intersection, in.object, ray, in.traceThreadData)) {
+						if (!depthFound || (intersection.Depth < mdist)) {
+							mdist = intersection.Depth;
+							minPhi = phi;
+							minTheta = theta;
+							depthFound = true;
+						}
 					}
 				}
 			}
-		}
 
-		direction[X] = 0;
-		direction[Y] = -1;
-		direction[Z] = 0;
+			direction[X] = 0;
+			direction[Y] = -1;
+			direction[Z] = 0;
 
-		ray.Direction = direction;
-		if (Find_Intersection(&intersection, in.object, ray, in.traceThreadData)) {
-			if (!depthFound || (intersection.Depth < mdist)) {
-				minPhi = M_PI;
-				minTheta = 0.0;
-				mdist = intersection.Depth;
-				depthFound = true;
+			ray.Direction = direction;
+			if (Find_Intersection(&intersection, in.object, ray, in.traceThreadData)) {
+				if (!depthFound || (intersection.Depth < mdist)) {
+					minPhi = M_PI;
+					minTheta = 0.0;
+					mdist = intersection.Depth;
+					depthFound = true;
+				}
 			}
+
+			MinimumDistanceState state = MinimumDistanceState(minPhi, minTheta);
+
+			return MinimumDistanceSolution(mdist, in, state, mdist);
 		}
-
-		MinimumDistanceState state = MinimumDistanceState(minPhi, minTheta);
-
-		return MinimumDistanceSolution(mdist, in, state, mdist);
 	}
 
 	SimulatedAnnealingSolution<MinimumDistanceInput, MinimumDistanceState, DBL> MinimimDistanceSolver::GetNeighbor(const SimulatedAnnealingSolution<MinimumDistanceInput, MinimumDistanceState, DBL> &solution) {

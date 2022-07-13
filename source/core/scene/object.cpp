@@ -946,6 +946,10 @@ bool ObjectBase::IsOpaque() const
            ((Interior_Texture == nullptr) || Test_Opacity(Interior_Texture));
 }
 
+DBL ObjectBase::Proximity(Vector3d &pointOnObject, const Vector3d &samplePoint, TraceThreadData *threaddata) {
+	throw POV_EXCEPTION_STRING("proximity not supported for this object type");
+}
+
 void ContainedByBox::ComputeBBox(BoundingBox& rBbox) const
 {
     rBbox.lowerLeft = BBoxVector3d(corner1);

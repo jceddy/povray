@@ -66,6 +66,7 @@
 // C++ standard header files
 #include <algorithm>
 #include <limits>
+#include <array>
 
 // POV-Ray header files (base module)
 #include "base/pov_err.h"
@@ -96,6 +97,11 @@ const DBL DEPTH_TOLERANCE = 1e-6;
 const int HASH_SIZE = 1000;
 
 const int INITIAL_NUMBER_OF_ENTRIES = 256;
+
+const DBL MAX_PROXIMITY_DISTANCE = 20000000000.0;
+const DBL ZERO = 0.0;
+const DBL ONE = 1.0;
+const DBL TINY_TOLERANCE = 1e-8;
 
 
 
@@ -750,6 +756,11 @@ Mesh::~Mesh()
         {
             POV_FREE(Data->Triangles);
         }
+
+		if (Data->kdTree != nullptr) {
+			delete(Data->kdTree);
+			delete(Data->Triangles_For_Vertex);
+		}
 
         POV_FREE(Data);
     }
@@ -1410,6 +1421,52 @@ void Mesh::Build_Mesh_BBox_Tree()
     /* Get rid of the Triangles array. */
 
     POV_FREE(Triangles);
+}
+
+
+
+/*****************************************************************************
+*
+* FUNCTION
+*
+*   Build_Mesh_KDTree
+*
+* INPUT
+*
+* OUTPUT
+*
+* RETURNS
+*
+* AUTHOR
+*
+*   Joseph Eddy
+*
+* DESCRIPTION
+*
+*   Create the KDTree from the mesh vertices for nearest neighbor calculations.
+*
+* CHANGES
+*
+*   Jul 2022 : Creation.
+*
+******************************************************************************/
+
+void Mesh::Build_Mesh_KDTree() {
+	if (Data->kdTree == nullptr) {  // only build the tree once
+		pointVec vertices;
+		for (int v = 0; v < Data->Number_Of_Vertices; v++) {
+			vertices.push_back(Vector3d(Data->Vertices[v]));
+		}
+		Data->kdTree = new KDTree(vertices);
+
+		Data->Triangles_For_Vertex = new std::vector<std::vector<MESH_TRIANGLE*>>(Data->Number_Of_Vertices);
+
+		for (int t = 0; t < Data->Number_Of_Triangles; t++) {
+			Data->Triangles_For_Vertex->at(Data->Triangles[t].P1).push_back(&Data->Triangles[t]);
+			Data->Triangles_For_Vertex->at(Data->Triangles[t].P2).push_back(&Data->Triangles[t]);
+			Data->Triangles_For_Vertex->at(Data->Triangles[t].P3).push_back(&Data->Triangles[t]);
+		}
+	}
 }
 
 
@@ -2454,6 +2511,247 @@ void Mesh::Determine_Textures(Intersection *isect, bool hitinside, WeightedTextu
         textures.push_back(WeightedTexture(1.0, Textures[tri->Texture]));
     else if (Texture != nullptr)
         textures.push_back(WeightedTexture(1.0, Texture));
+}
+
+// helper functions for Proximity()
+void GetMinEdge02(DBL const& a11, DBL const& b1, std::array<DBL, 2>& p)
+{
+	p[0] = ZERO;
+	if (b1 >= ZERO)
+	{
+		p[1] = ZERO;
+	}
+	else if (a11 + b1 <= ZERO)
+	{
+		p[1] = ONE;
+	}
+	else
+	{
+		p[1] = -b1 / a11;
+	}
+}
+
+inline void GetMinEdge12(DBL const& a01, DBL const& a11, DBL const& b1,
+	DBL const& f10, DBL const& f01, std::array<DBL, 2>& p)
+{
+	DBL h0 = a01 + b1 - f10;
+	if (h0 >= ZERO)
+	{
+		p[1] = ZERO;
+	}
+	else
+	{
+		DBL h1 = a11 + b1 - f01;
+		if (h1 <= ZERO)
+		{
+			p[1] = ONE;
+		}
+		else
+		{
+			p[1] = h0 / (h0 - h1);
+		}
+	}
+	p[0] = ONE - p[1];
+}
+
+inline void GetMinInterior(std::array<DBL, 2> const& p0, DBL const& h0,
+	std::array<DBL, 2> const& p1, DBL const& h1, std::array<DBL, 2>& p)
+{
+	DBL z = h0 / (h0 - h1);
+	DBL omz = ONE - z;
+	p[0] = omz * p0[0] + z * p1[0];
+	p[1] = omz * p0[1] + z * p1[1];
+}
+
+DBL Mesh::Proximity(Vector3d &pointOnObject, const Vector3d &samplePoint, TraceThreadData *threaddata) {
+	if (Data == nullptr) {
+		return MAX_PROXIMITY_DISTANCE;
+	}
+
+	// get the nearest mesh vertex point and index
+	Vector3d transformedPoint = samplePoint;
+	if (Trans != nullptr) {
+		MInvTransPoint(transformedPoint, transformedPoint, Trans);
+	}
+	pointIndex nearestPointIdx = Data->kdTree->nearest_pointIndex(transformedPoint);
+	DBL distance_vertex = (transformedPoint - nearestPointIdx.first).length();
+	if (distance_vertex <= TINY_TOLERANCE) {
+		return 0.0;
+	}
+	DBL dist = 20000000000.0;
+
+	distance_vertex += TINY_TOLERANCE;
+	BoundingBox bounds;
+	Make_BBox_from_min_max(bounds, transformedPoint - distance_vertex, transformedPoint + distance_vertex);
+
+	/* find triangles that overlap bounds */
+	std::vector<BBOX_TREE*> boxes;
+	//Vector3d tempdir;
+	if (Intersect_BBox_Tree(boxes, Data->Tree, bounds)) {
+		for (int i = 0; i < boxes.size(); i++) {
+			MESH_TRIANGLE *triangle = reinterpret_cast<MESH_TRIANGLE *>(boxes[i]->Node);
+
+			Vector3d v0 = Vector3d(Data->Vertices[triangle->P1]);
+			Vector3d v1 = Vector3d(Data->Vertices[triangle->P2]);
+			Vector3d v2 = Vector3d(Data->Vertices[triangle->P3]);
+			Vector3d diff = transformedPoint - v0;
+			Vector3d edge0 = v1 - v0;
+			Vector3d edge1 = v2 - v0;
+			DBL a00 = dot(edge0, edge0);
+			DBL a01 = dot(edge0, edge1);
+			DBL a11 = dot(edge1, edge1);
+			DBL b0 = -dot(diff, edge0);
+			DBL b1 = -dot(diff, edge1);
+
+			DBL f00 = b0;
+			DBL f10 = b0 + a00;
+			DBL f01 = b0 + a01;
+
+			std::array<DBL, 2> p0{}, p1{}, p{};
+			DBL dt1{}, h0{}, h1{};
+
+			if (f00 >= ZERO)
+			{
+				if (f01 >= ZERO)
+				{
+					// (1) p0 = (0,0), p1 = (0,1), H(z) = G(L(z))
+					GetMinEdge02(a11, b1, p);
+				}
+				else
+				{
+					// (2) p0 = (0,t10), p1 = (t01,1-t01),
+					// H(z) = (t11 - t10)*G(L(z))
+					p0[0] = ZERO;
+					p0[1] = f00 / (f00 - f01);
+					p1[0] = f01 / (f01 - f10);
+					p1[1] = ONE - p1[0];
+					dt1 = p1[1] - p0[1];
+					h0 = dt1 * (a11 * p0[1] + b1);
+					if (h0 >= ZERO)
+					{
+						GetMinEdge02(a11, b1, p);
+					}
+					else
+					{
+						h1 = dt1 * (a01 * p1[0] + a11 * p1[1] + b1);
+						if (h1 <= ZERO)
+						{
+							GetMinEdge12(a01, a11, b1, f10, f01, p);
+						}
+						else
+						{
+							GetMinInterior(p0, h0, p1, h1, p);
+						}
+					}
+				}
+			}
+			else if (f01 <= ZERO)
+			{
+				if (f10 <= ZERO)
+				{
+					// (3) p0 = (1,0), p1 = (0,1), H(z) = G(L(z)) - F(L(z))
+					GetMinEdge12(a01, a11, b1, f10, f01, p);
+				}
+				else
+				{
+					// (4) p0 = (t00,0), p1 = (t01,1-t01), H(z) = t11*G(L(z))
+					p0[0] = f00 / (f00 - f10);
+					p0[1] = ZERO;
+					p1[0] = f01 / (f01 - f10);
+					p1[1] = ONE - p1[0];
+					h0 = p1[1] * (a01 * p0[0] + b1);
+					if (h0 >= ZERO)
+					{
+						p = p0;  // GetMinEdge01
+					}
+					else
+					{
+						h1 = p1[1] * (a01 * p1[0] + a11 * p1[1] + b1);
+						if (h1 <= ZERO)
+						{
+							GetMinEdge12(a01, a11, b1, f10, f01, p);
+						}
+						else
+						{
+							GetMinInterior(p0, h0, p1, h1, p);
+						}
+					}
+				}
+			}
+			else if (f10 <= ZERO)
+			{
+				// (5) p0 = (0,t10), p1 = (t01,1-t01),
+				// H(z) = (t11 - t10)*G(L(z))
+				p0[0] = ZERO;
+				p0[1] = f00 / (f00 - f01);
+				p1[0] = f01 / (f01 - f10);
+				p1[1] = ONE - p1[0];
+				dt1 = p1[1] - p0[1];
+				h0 = dt1 * (a11 * p0[1] + b1);
+				if (h0 >= ZERO)
+				{
+					GetMinEdge02(a11, b1, p);
+				}
+				else
+				{
+					h1 = dt1 * (a01 * p1[0] + a11 * p1[1] + b1);
+					if (h1 <= ZERO)
+					{
+						GetMinEdge12(a01, a11, b1, f10, f01, p);
+					}
+					else
+					{
+						GetMinInterior(p0, h0, p1, h1, p);
+					}
+				}
+			}
+			else
+			{
+				// (6) p0 = (t00,0), p1 = (0,t11), H(z) = t11*G(L(z))
+				p0[0] = f00 / (f00 - f10);
+				p0[1] = ZERO;
+				p1[0] = ZERO;
+				p1[1] = f00 / (f00 - f01);
+				h0 = p1[1] * (a01 * p0[0] + b1);
+				if (h0 >= ZERO)
+				{
+					p = p0;  // GetMinEdge01
+				}
+				else
+				{
+					h1 = p1[1] * (a11 * p1[1] + b1);
+					if (h1 <= ZERO)
+					{
+						GetMinEdge02(a11, b1, p);
+					}
+					else
+					{
+						GetMinInterior(p0, h0, p1, h1, p);
+					}
+				}
+			}
+
+			Vector3d closest = v0 + p[0] * edge0 + p[1] * edge1;
+			diff = closest - transformedPoint;
+			if (Trans != nullptr) {
+				MTransDirection(diff, diff, Trans);
+			}
+			DBL sqrDistance = dot(diff, diff);
+			DBL distance = std::sqrt(sqrDistance);
+
+			if (distance < dist) {
+				dist = distance;
+				pointOnObject = samplePoint + diff;
+			}
+		}
+	}
+
+	if (Inside(samplePoint, threaddata)) {
+		return 0.0 - dist;
+	}
+	else {
+		return dist;
+	}
 }
 
 }

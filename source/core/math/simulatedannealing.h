@@ -153,9 +153,13 @@ namespace pov
 		ObjectPtr object;
 		int initialSolutionQuality;
 		TraceThreadData *traceThreadData;
+		bool initialDirProvided = false;
+		DBL initialTheta = 0.0;
+		DBL initialPhi = 0.0;
 
 		MinimumDistanceInput();
 		MinimumDistanceInput(Vector3d pt, ObjectPtr obj, TraceThreadData *tData, int initQuality = 2);
+		MinimumDistanceInput(Vector3d pt, ObjectPtr obj, TraceThreadData *tData, DBL theta, DBL phi);
 	};
 
 	// state for minimum distance classes

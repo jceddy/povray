@@ -50,6 +50,7 @@
 
 // POV-Ray header files (core module)
 #include "core/bounding/boundingbox_fwd.h"
+#include "core/math/kdtree.h"
 #include "core/scene/object.h"
 
 namespace pov
@@ -115,7 +116,9 @@ struct Mesh_Data_Struct final
     MeshUVVector *UVCoords;            ///< Array of UV coordinates
     MESH_TRIANGLE *Triangles;          ///< Array of triangles.
     BBOX_TREE *Tree;                   ///< Bounding box tree for mesh.
+	KDTree *kdTree = nullptr;          ///< KD Tree for nearest point calculations.
     Vector3d Inside_Vect;              ///< vector to use to test 'inside'
+	std::vector<std::vector<MESH_TRIANGLE*>> *Triangles_For_Vertex;  ///< vector mapping vertex indices to triangles
 };
 using MESH_DATA = Mesh_Data_Struct; ///< @deprecated
 
@@ -165,6 +168,7 @@ class Mesh final : public ObjectBase
         bool Compute_Mesh_Triangle(MESH_TRIANGLE *Triangle, bool Smooth, const Vector3d& P1, const Vector3d& P2, const Vector3d& P3, Vector3d& S_Normal) const;
 
         void Build_Mesh_BBox_Tree();
+		void Build_Mesh_KDTree();
         bool Degenerate(const Vector3d& P1, const Vector3d& P2, const Vector3d& P3);
         void Init_Mesh_Triangle(MESH_TRIANGLE *Triangle);
         void Destroy_Mesh_Hash_Tables();
@@ -175,6 +179,11 @@ class Mesh final : public ObjectBase
         void Smooth_Mesh_Normal(Vector3d& Result, const MESH_TRIANGLE *Triangle, const Vector3d& IPoint) const;
 
         virtual void Determine_Textures(Intersection *, bool, WeightedTextureVector&, TraceThreadData *) override;
+
+		/// Get the proximity of a point to the mesh.
+		/// pointOnObject will be populated with the nearest point on the object's surface to the samplePoint.
+		/// The method returns the proximity (distance), which is the length of the vector from samplePoint to pointOnObject.
+		virtual DBL Proximity(Vector3d &pointOnObject, const Vector3d &samplePoint, TraceThreadData *threaddata) override;
     protected:
         bool Intersect(const BasicRay& ray, IStack& Depth_Stack, TraceThreadData *Thread);
         void Compute_Mesh_BBox();

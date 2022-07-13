@@ -3624,6 +3624,10 @@ ObjectPtr Parser::Parse_Mesh()
 
     Object->Build_Mesh_BBox_Tree();
 
+	// Create kdTree.
+
+	Object->Build_Mesh_KDTree();
+
     return Object;
 }
 
@@ -3905,7 +3909,8 @@ void Parser::Parse_Mesh1 (Mesh* Object)
     Object->Data->References = 1;
 
     Object->Data->Tree = nullptr;
-    /* NK 1998 */
+	Object->Data->kdTree = nullptr;
+	/* NK 1998 */
 
     if( (fabs(Inside_Vect[X]) < EPSILON) &&  (fabs(Inside_Vect[Y]) < EPSILON) &&  (fabs(Inside_Vect[Z]) < EPSILON))
     {
@@ -4072,6 +4077,10 @@ ObjectPtr Parser::Parse_Mesh2()
     // Create bounding box tree.
 
     Object->Build_Mesh_BBox_Tree();
+
+	// Create kdTree.
+
+	Object->Build_Mesh_KDTree();
 
     return Object;
 }
@@ -4579,6 +4588,7 @@ void Parser::Parse_Mesh2 (Mesh* Object)
     Object->Data = reinterpret_cast<MESH_DATA *>(POV_MALLOC(sizeof(MESH_DATA), "triangle mesh data"));
     Object->Data->References = 1;
     Object->Data->Tree = nullptr;
+	Object->Data->kdTree = nullptr;
     /* NK 1998 */
     /*YS* 31/12/1999 */
 
