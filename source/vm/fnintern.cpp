@@ -57,10 +57,8 @@
 #include "core/math/kdtree.h"
 #include "core/math/matrix.h"
 #include "core/math/spline.h"
-#include "core/math/simulatedannealing.h"
 #include "core/scene/scenedata.h"
 #include "core/scene/tracethreaddata.h"
-#include "core/shape/mesh.h"
 
 // POV-Ray header files (VM module)
 #include "vm/fnpovfpu.h"
@@ -180,7 +178,7 @@ DBL f_witch_of_agnesi_2d(FPUContext *ctx, DBL *ptr, unsigned int fn); // 75
 DBL f_noise3d(FPUContext *ctx, DBL *ptr, unsigned int fn); // 76
 DBL f_pattern(FPUContext *ctx, DBL *ptr, unsigned int fn); // 77
 DBL f_noise_generator(FPUContext *ctx, DBL *ptr, unsigned int fn); // 78
-DBL f_minimum_distance(FPUContext *ctx, DBL *ptr, unsigned int fn); // 79
+DBL f_proximity(FPUContext *ctx, DBL *ptr, unsigned int fn); // 79
 
 void f_pigment(FPUContext *ctx, DBL *ptr, unsigned int fn, unsigned int sp); // 0
 void f_transform(FPUContext *ctx, DBL *ptr, unsigned int fn, unsigned int sp); // 1
@@ -272,7 +270,7 @@ const Trap POVFPU_TrapTable[] =
     { f_noise3d,                 0 + 3 }, // 76
     { f_pattern,                 0 + 3 }, // 77
     { f_noise_generator,         1 + 3 }, // 78
-	{ f_minimum_distance,        0 + 3 }, // 79
+	{ f_proximity,               0 + 3 }, // 79
     { nullptr, 0 }
 };
 
@@ -1225,7 +1223,7 @@ DBL f_noise_generator(FPUContext *ctx, DBL *ptr, unsigned int) // 78
     return Noise(Vec, ngen);
 }
 
-DBL f_minimum_distance(FPUContext *ctx, DBL *ptr, unsigned int fn) // 79
+DBL f_proximity(FPUContext *ctx, DBL *ptr, unsigned int fn) // 79
 {
 	Vector3d Vec = Vector3d(PARAM_X, PARAM_Y, PARAM_Z);
 	FunctionCode *f = ctx->functionvm->GetFunction(fn);

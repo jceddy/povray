@@ -1495,7 +1495,7 @@ void Parser::Parse_Pattern (PATTERN_T *New, BlendMapTypeId TPat_Type)
             }
         END_CASE
 
-		CASE(MINIMUM_DISTANCE_TOKEN)
+		CASE(PROXIMITY_TOKEN)
 		{
 			Parse_Begin();
 			vector<ObjectPtr> tempObjects;
@@ -1503,16 +1503,9 @@ void Parser::Parse_Pattern (PATTERN_T *New, BlendMapTypeId TPat_Type)
 			if (tempObjects.size() != 1)
 				Error("object or object identifier expected.");
 			New->Type = GENERIC_PATTERN;
-			shared_ptr<MinimumDistancePattern> pattern(new MinimumDistancePattern());
+			shared_ptr<ProximityPattern> pattern(new ProximityPattern());
 			pattern->pObject = tempObjects[0];
 			New->pattern = pattern;
-			if (Parse_Comma()) {
-				pattern->t_min = Parse_Float();
-				Parse_Comma();
-				pattern->alpha = Parse_Float();
-				Parse_Comma();
-				pattern->num_iterations = Parse_Int("num_iterations");
-			}
 			New->Blend_Map = Parse_Blend_List<MAP_T>(2, New->pattern->GetDefaultBlendMap(), TPat_Type);
 			Parse_End();
 		}
@@ -4909,7 +4902,7 @@ void Parser::Parse_PatternFunction(TPATTERN *New)
             }
         END_CASE
 
-		CASE(MINIMUM_DISTANCE_TOKEN)
+		CASE(PROXIMITY_TOKEN)
 		{
 			Parse_Begin();
 			vector<ObjectPtr> tempObjects;
@@ -4917,16 +4910,9 @@ void Parser::Parse_PatternFunction(TPATTERN *New)
 			if (tempObjects.size() != 1)
 				Error("object or object identifier expected.");
 			New->Type = GENERIC_PATTERN;
-			shared_ptr<MinimumDistancePattern> pattern(new MinimumDistancePattern());
+			shared_ptr<ProximityPattern> pattern(new ProximityPattern());
 			pattern->pObject = tempObjects[0];
 			New->pattern = pattern;
-			if (Parse_Comma()) {
-				pattern->t_min = Parse_Float();
-				Parse_Comma();
-				pattern->alpha = Parse_Float();
-				Parse_Comma();
-				pattern->num_iterations = Parse_Int("num_iterations");
-			}
 
 			// New->Blend_Map not parsed in pattern functions.
 			Parse_End();

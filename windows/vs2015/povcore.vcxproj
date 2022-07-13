@@ -429,7 +429,6 @@
     <ClCompile Include="..\..\source\core\math\quaternion.cpp" />
     <ClCompile Include="..\..\source\core\math\randcosweighted.cpp" />
     <ClCompile Include="..\..\source\core\math\randomsequence.cpp" />
-    <ClCompile Include="..\..\source\core\math\simulatedannealing.cpp" />
     <ClCompile Include="..\..\source\core\math\spline.cpp" />
     <ClCompile Include="..\..\source\core\math\vector.cpp" />
     <ClCompile Include="..\..\source\core\render\ray.cpp" />
@@ -519,7 +518,6 @@
     <ClInclude Include="..\..\source\core\math\randcosweighted.h" />
     <ClInclude Include="..\..\source\core\math\randomsequence.h" />
     <ClInclude Include="..\..\source\core\math\randomsequence_fwd.h" />
-    <ClInclude Include="..\..\source\core\math\simulatedannealing.h" />
     <ClInclude Include="..\..\source\core\math\spline.h" />
     <ClInclude Include="..\..\source\core\math\vector.h" />
     <ClInclude Include="..\..\source\core\math\vector_fwd.h" />

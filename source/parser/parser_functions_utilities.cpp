@@ -323,9 +323,9 @@ FUNCTION_PTR Parser::Parse_DeclareFunction(TokenId *token_id, const char *fn_nam
         Parse_End();
         Post_Pigment(reinterpret_cast<PIGMENT *>(function.private_data));
     }
-	else if (CurrentTrueTokenId() == MINIMUM_DISTANCE_TOKEN) {
+	else if (CurrentTrueTokenId() == PROXIMITY_TOKEN) {
 		if (function.parameter_cnt != 0)
-			Error("Function parameters for minimum distance functions are not allowed.");
+			Error("Function parameters for proximity functions are not allowed.");
 
 		expression = FNSyntax_GetTrapExpression(79); // 79 refers to POVFPU_TrapTable[79] = f_object [trf]
 

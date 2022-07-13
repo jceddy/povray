@@ -618,17 +618,17 @@ struct ObjectPattern final : public DiscretePattern
     virtual unsigned int NumDiscreteBlendMapEntries() const override;
 };
 
-/// Implements the `minimum_distance` pattern.
-struct MinimumDistancePattern final : public ContinuousPattern
+/// Implements the `proximity` pattern.
+struct ProximityPattern final : public ContinuousPattern
 {
 	ObjectPtr pObject;
 	DBL t_min = .1;
 	DBL alpha = 0.2;
 	int num_iterations = 10;
 
-	MinimumDistancePattern();
-	MinimumDistancePattern(const MinimumDistancePattern& obj);
-	virtual ~MinimumDistancePattern() override;
+	ProximityPattern();
+	ProximityPattern(const ProximityPattern& obj);
+	virtual ~ProximityPattern() override;
 	virtual PatternPtr Clone() const override { return BasicPattern::Clone(*this); }
 	virtual DBL EvaluateRaw(const Vector3d& EPoint, const Intersection *pIsection, const Ray *pRay, TraceThreadData *pThread) const override;
 };

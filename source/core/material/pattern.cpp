@@ -61,7 +61,6 @@
 #include "core/material/warp.h"
 #include "core/math/matrix.h"
 #include "core/math/randomsequence.h"
-#include "core/math/simulatedannealing.h"
 #include "core/render/ray.h"
 #include "core/scene/object.h"
 #include "core/scene/scenedata.h"
@@ -620,11 +619,11 @@ ColourBlendMapConstPtr ObjectPattern::GetDefaultBlendMap() const { return gpDefa
 unsigned int ObjectPattern::NumDiscreteBlendMapEntries() const { return 2; }
 
 
-MinimumDistancePattern::MinimumDistancePattern() :
+ProximityPattern::ProximityPattern() :
 	pObject(nullptr)
 {}
 
-MinimumDistancePattern::MinimumDistancePattern(const MinimumDistancePattern& obj) :
+ProximityPattern::ProximityPattern(const ProximityPattern& obj) :
 	ContinuousPattern(obj),
 	pObject(nullptr)
 {
@@ -632,7 +631,7 @@ MinimumDistancePattern::MinimumDistancePattern(const MinimumDistancePattern& obj
 		pObject = Copy_Object(obj.pObject);
 }
 
-MinimumDistancePattern::~MinimumDistancePattern()
+ProximityPattern::~ProximityPattern()
 {
 	if (pObject)
 		Destroy_Object(pObject);
@@ -7926,7 +7925,7 @@ DBL ObjectPattern::Evaluate(const Vector3d& EPoint, const Intersection *pIsectio
 *
 * FUNCTION
 *
-*   minimum_distance_pattern
+*   proximity_pattern
 *
 * INPUT
 *
@@ -7950,37 +7949,15 @@ DBL ObjectPattern::Evaluate(const Vector3d& EPoint, const Intersection *pIsectio
 *
 ******************************************************************************/
 
-DBL MinimumDistancePattern::EvaluateRaw(const Vector3d& EPoint, const Intersection *pIsection, const Ray *pRay, TraceThreadData *pThread) const
+DBL ProximityPattern::EvaluateRaw(const Vector3d& EPoint, const Intersection *pIsection, const Ray *pRay, TraceThreadData *pThread) const
 {
-	DBL t_min_local = t_min;
-	DBL alpha_local = alpha;
-	int num_iterations_local = num_iterations;
-
-	if (t_min_local < .0001) { t_min_local = .0001; }
-	if (t_min_local > .1) { t_min_local = .1; }
-	if (alpha_local < 0.1) { alpha_local = 0.1; }
-	if (alpha_local > 0.9) { alpha_local = 0.9; }
-	if (num_iterations_local > 100) { num_iterations_local = 100; }
-	if (num_iterations_local < 10) { num_iterations_local = 10; }
-
 	if (pObject != nullptr)
 	{
-		MinimimDistanceSolver solver;
-		solver.minimumTemperature = t_min_local;
-		solver.alpha = alpha_local;
-		solver.numIterations = num_iterations_local;
-		MinimumDistanceInput input = MinimumDistanceInput(EPoint, pObject, pThread);
-		SimulatedAnnealingSolution<MinimumDistanceInput, MinimumDistanceState, DBL> solution = solver.Solve(input);
-
-		if (Inside_Object(EPoint, pObject, pThread)) {
-			return 0.5 - (solution.output > 0.5 ? 0.5 : solution.output);
-		}
-		else {
-			return (solution.output > 0.5 ? 0.5 : solution.output) + 0.5;
-		}
+		Vector3d pointOnObject;
+		return pObject->Proximity(pointOnObject, EPoint, pThread);
 	}
 
-	return 1.0;
+	return 0.0;
 }
 
 /*****************************************************************************
