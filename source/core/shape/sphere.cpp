@@ -755,5 +755,29 @@ bool Sphere::Intersect_BBox(BBoxDirection, const BBoxVector3d&, const BBoxVector
     return true;
 }
 
+DBL Sphere::Proximity(Vector3d &pointOnObject, const Vector3d &samplePoint, TraceThreadData *threaddata) {
+	Vector3d transformedPoint = samplePoint;
+	if (Trans != nullptr) {
+		MInvTransPoint(transformedPoint, transformedPoint, Trans);
+	}
+	Vector3d sphereToPoint = transformedPoint - Center;
+	sphereToPoint.normalize();
+	sphereToPoint *= Radius;
+	Vector3d direction = (Center + sphereToPoint) - transformedPoint;
+	if (Trans != nullptr) {
+		MTransDirection(direction, direction, Trans);
+	}
+
+	pointOnObject = samplePoint + direction;
+	DBL dist = direction.length();
+
+	if (Inside(samplePoint, threaddata)) {
+		return 0.0 - dist;
+	}
+	else {
+		return dist;
+	}
+}
+
 }
 // end of namespace pov

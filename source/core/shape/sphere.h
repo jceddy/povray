@@ -93,6 +93,11 @@ class Sphere final : public ObjectBase
 
         static bool Intersect(const BasicRay& ray, const Vector3d& Center, DBL Radius2, DBL *Depth1, DBL  *Depth2);
 
+		/// Get the proximity of a point to the sphere.
+		/// pointOnObject will be populated with the nearest point on the object's surface to the samplePoint.
+		/// The method returns the proximity (distance), which is the length of the vector from samplePoint to pointOnObject.
+		virtual DBL Proximity(Vector3d &pointOnObject, const Vector3d &samplePoint, TraceThreadData *threaddata) override;
+
     private:
 
         /// Ellipsoid mode flag.
