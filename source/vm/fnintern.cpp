@@ -183,6 +183,7 @@ DBL f_proximity(FPUContext *ctx, DBL *ptr, unsigned int fn); // 79
 void f_pigment(FPUContext *ctx, DBL *ptr, unsigned int fn, unsigned int sp); // 0
 void f_transform(FPUContext *ctx, DBL *ptr, unsigned int fn, unsigned int sp); // 1
 void f_spline(FPUContext *ctx, DBL *ptr, unsigned int fn, unsigned int sp); // 2
+void f_nearest_point(FPUContext *ctx, DBL *ptr, unsigned int fn, unsigned int sp); // 3
 
 
 /*****************************************************************************
@@ -279,11 +280,12 @@ const TrapS POVFPU_TrapSTable[] =
     { f_pigment,                 0 + 3 }, // 0
     { f_transform,               0 + 3 }, // 1
     { f_spline,                  0 + 1 }, // 2
+	{ f_nearest_point,           0 + 3 }, // 3
     { nullptr, 0 }
 };
 
 const unsigned int POVFPU_TrapTableSize = 80;
-const unsigned int POVFPU_TrapSTableSize = 3;
+const unsigned int POVFPU_TrapSTableSize = 4;
 
 
 /*****************************************************************************
@@ -1235,25 +1237,6 @@ DBL f_proximity(FPUContext *ctx, DBL *ptr, unsigned int fn) // 79
 
 	Vector3d pointOnObject;
 	return pObject->Proximity(pointOnObject, Vec, ctx->threaddata);
-
-	/*DBL t_min_local = .1;
-	DBL alpha_local = 0.2;
-	int num_iterations_local = 10;
-
-	MinimimDistanceSolver solver;
-	solver.minimumTemperature = t_min_local;
-	solver.alpha = alpha_local;
-	solver.numIterations = num_iterations_local;
-	MinimumDistanceInput input = MinimumDistanceInput(Vec, pObject, ctx->threaddata);
-
-	SimulatedAnnealingSolution<MinimumDistanceInput, MinimumDistanceState, DBL> solution = solver.Solve(input);
-
-	if (Inside_Object(Vec, pObject, ctx->threaddata)) {
-		return 0.0 - solution.output;
-	}
-	else {
-		return solution.output;
-	}*/
 }
 
 void f_pigment(FPUContext *ctx, DBL *ptr, unsigned int fn, unsigned int sp) // 0
@@ -1334,6 +1317,29 @@ void f_spline(FPUContext *ctx, DBL *ptr, unsigned int fn, unsigned int sp) // 2
                 ctx->SetLocal(sp + T + 1, Result[T + 1]);
         }
     }
+}
+
+void f_nearest_point(FPUContext *ctx, DBL *ptr, unsigned int fn, unsigned int sp) // 3
+{
+	Vector3d Vec = Vector3d(PARAM_N_X(3), PARAM_N_Y(3), PARAM_N_Z(3));
+	FunctionCode *f = ctx->functionvm->GetFunction(fn);
+
+	if (f->private_data == nullptr)
+	{
+		ctx->SetLocal(sp + X, 20000000000.0);
+		ctx->SetLocal(sp + Y, 20000000000.0);
+		ctx->SetLocal(sp + Z, 20000000000.0);
+		return;
+	}
+
+	ObjectPtr pObject = reinterpret_cast<const ObjectPtr>(f->private_data);
+
+	Vector3d pointOnObject;
+	DBL proximity = pObject->Proximity(pointOnObject, Vec, ctx->threaddata);
+
+	ctx->SetLocal(sp + X, pointOnObject.x());
+	ctx->SetLocal(sp + Y, pointOnObject.y());
+	ctx->SetLocal(sp + Z, pointOnObject.z());
 }
 
 }

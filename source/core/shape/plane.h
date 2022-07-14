@@ -92,6 +92,11 @@ class Plane final : public ObjectBase
         virtual ObjectPtr Invert() override;
         virtual void Compute_BBox() override;
         virtual bool Intersect_BBox(BBoxDirection, const BBoxVector3d&, const BBoxVector3d&, BBoxScalar) const override;
+
+		/// Get the proximity of a point to the plane.
+		/// pointOnObject will be populated with the nearest point on the object's surface to the samplePoint.
+		/// The method returns the proximity (distance), which is the length of the vector from samplePoint to pointOnObject.
+		virtual DBL Proximity(Vector3d &pointOnObject, const Vector3d &samplePoint, TraceThreadData *threaddata) override;
     protected:
         bool Intersect(const BasicRay& ray, DBL *Depth, RenderStatistics& stats) const;
 };

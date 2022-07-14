@@ -94,6 +94,11 @@ class Cone final : public ObjectBase
         virtual bool All_Intersections(const Ray&, IStack&, TraceThreadData *) override;
         virtual bool Inside(const Vector3d&, TraceThreadData *) const override;
         virtual void Normal(Vector3d&, Intersection *, TraceThreadData *) const override;
+
+		/// Get the proximity of a point to the cone.
+		/// pointOnObject will be populated with the nearest point on the object's surface to the samplePoint.
+		/// The method returns the proximity (distance), which is the length of the vector from samplePoint to pointOnObject.
+		virtual DBL Proximity(Vector3d &pointOnObject, const Vector3d &samplePoint, TraceThreadData *threaddata) override;
 #ifdef POV_ENABLE_CONE_UV
         /// @attention
         ///     UV mapping of this primitive should not be enabled until the primary

@@ -63,6 +63,7 @@ namespace pov
 ******************************************************************************/
 
 const DBL Cone_Tolerance = 1.0e-9;
+const DBL ZERO = 0.0;
 
 #define close(x, y) (fabs(x-y) < EPSILON ? 1 : 0)
 
@@ -932,6 +933,67 @@ void Cone::Compute_BBox()
     Recompute_BBox(&BBox, Trans);
 }
 
+
+// helper function for Proximity
+inline void GetClosestPointOnDisc(Vector3d &out_pt, const Vector3d &center, const Vector3d &normal, DBL radius, const Vector3d &in_pt, bool closed) {
+	Vector3d v = in_pt - center;
+	DBL dist = dot(v, normal);
+	Vector3d in_projected = in_pt - dist * normal;
+
+	DBL distSquared = (in_projected - center).lengthSqr();
+	DBL radiusSquared = radius * radius;
+
+	if (closed && (distSquared < radiusSquared)) {
+		out_pt = in_projected;
+	}
+	else {
+		out_pt = center + (in_projected - center).normalized() * radius;
+	}
+}
+
+
+DBL Cone::Proximity(Vector3d &pointOnObject, const Vector3d &samplePoint, TraceThreadData *threaddata) {
+	Vector3d transformedPoint = samplePoint;
+	// looks like transform is applied to base data, so I shouldn't do
+	// any transformations in here
+	//if (Trans != nullptr) {
+	//	MInvTransPoint(transformedPoint, transformedPoint, Trans);
+	//}
+
+	Vector3d delta = apex - base;
+	Vector3d apexNormal = delta.normalized();
+	Vector3d baseNormal = -apexNormal;
+	DBL deltaSquared = delta.lengthSqr();
+
+	DBL dist = dot(transformedPoint - base, apex - base);
+	Vector3d pt;
+	if (dist <= ZERO) {
+		GetClosestPointOnDisc(pt, base, baseNormal, base_radius, transformedPoint, Test_Flag(this, CLOSED_FLAG));
+	}
+	else if (dist >= deltaSquared) {
+		GetClosestPointOnDisc(pt, apex, apexNormal, apex_radius, transformedPoint, Test_Flag(this, CLOSED_FLAG));
+	}
+	else {
+		dist = dist / deltaSquared;
+		Vector3d pointOnLine = base + dist * delta;
+		pt = pointOnLine + ((transformedPoint - pointOnLine).normalized() * (apex_radius * dist + base_radius * (1.0 - dist)));
+	}
+
+	Vector3d diff = pt - transformedPoint;
+
+	//if (Trans != nullptr) {
+	//	MTransDirection(diff, diff, Trans);
+	//}
+	pointOnObject = samplePoint + diff;
+	dist = diff.length();
+
+	if (Test_Flag(this, CLOSED_FLAG) && Inside(samplePoint, threaddata)) {
+		return 0.0 - dist;
+	}
+	else {
+		return dist;
+	}
+}
 
 
 #ifdef POV_ENABLE_CONE_UV

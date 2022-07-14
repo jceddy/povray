@@ -98,6 +98,11 @@ class Disc final : public ObjectBase
         virtual void Compute_BBox() override;
 
         void Compute_Disc();
+
+		/// Get the proximity of a point to the disc.
+		/// pointOnObject will be populated with the nearest point on the object's surface to the samplePoint.
+		/// The method returns the proximity (distance), which is the length of the vector from samplePoint to pointOnObject.
+		virtual DBL Proximity(Vector3d &pointOnObject, const Vector3d &samplePoint, TraceThreadData *threaddata) override;
     protected:
         bool Intersect(const BasicRay& ray, DBL *Depth) const;
 };

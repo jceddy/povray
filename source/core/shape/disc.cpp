@@ -595,5 +595,55 @@ void Disc::Compute_BBox()
     Recompute_BBox(&BBox, Trans);
 }
 
+inline void GetClosestPointOnDisc(Vector3d &out_pt, const Vector3d &center, const Vector3d &normal, DBL radius, const Vector3d &in_pt, bool closed) {
+	Vector3d v = in_pt - center;
+	DBL dist = dot(v, normal);
+	Vector3d in_projected = in_pt - dist * normal;
+
+	DBL distSquared = (in_projected - center).lengthSqr();
+	DBL radiusSquared = radius * radius;
+
+	if (closed && (distSquared < radiusSquared)) {
+		out_pt = in_projected;
+	}
+	else {
+		out_pt = center + (in_projected - center).normalized() * radius;
+	}
+}
+
+DBL Disc::Proximity(Vector3d &pointOnObject, const Vector3d &samplePoint, TraceThreadData *threaddata) {
+	Vector3d transformedPoint = samplePoint;
+	// looks like transform is applied to base data, so I shouldn't do
+	// any transformations in here
+	//if (Trans != nullptr) {
+	//	MInvTransPoint(transformedPoint, transformedPoint, Trans);
+	//}
+
+	DBL dist = dot(normal, transformedPoint) - d;
+	Vector3d diff = -dist * normal;
+	Vector3d pt = transformedPoint + diff;
+	DBL dist2 = (center - pt).lengthSqr();
+	if (dist2 < iradius2) {
+		Vector3d dir = (pt - center);
+		dir.normalize();
+		pt = center + dir * sqrt(iradius2);
+	}
+	else if (dist2 > oradius2) {
+		Vector3d dir = (pt - center);
+		dir.normalize();
+		pt = center + dir * sqrt(oradius2);
+	}
+
+	diff = pt - transformedPoint;
+
+	//if (Trans != nullptr) {
+	//	MTransDirection(diff, diff, Trans);
+	//}
+	pointOnObject = samplePoint + diff;
+	dist = diff.length();
+
+	return dist;
+}
+
 }
 // end of namespace pov

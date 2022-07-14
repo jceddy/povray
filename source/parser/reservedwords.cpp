@@ -358,6 +358,7 @@ const RESERVED_WORD Reserved_Words[] = {
 
     { NATURAL_SPLINE_TOKEN,         "natural_spline" },
     { NEAREST_COUNT_TOKEN,          "nearest_count" },
+	{ NEAREST_POINT_TOKEN,          "nearest_point" },
     { NO_TOKEN,                     "no" },
     { NO_BUMP_SCALE_TOKEN,          "no_bump_scale" },
     { NO_IMAGE_TOKEN,               "no_image" },

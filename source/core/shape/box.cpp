@@ -1081,5 +1081,64 @@ bool Box::Intersect_BBox(BBoxDirection, const BBoxVector3d&, const BBoxVector3d&
     return true;
 }
 
+DBL Box::Proximity(Vector3d &pointOnObject, const Vector3d &samplePoint, TraceThreadData *threaddata) {
+	Vector3d transformedPoint = samplePoint;
+	if (Trans != nullptr) {
+		MInvTransPoint(transformedPoint, transformedPoint, Trans);
+	}
+
+	if (Inside(samplePoint, threaddata)) {
+		DBL dist = (bounds[1] - bounds[0]).length();
+
+		Vector3d diff;
+		if (transformedPoint.x() - bounds[0].x() < dist) {
+			dist = transformedPoint.x() - bounds[0].x();
+			diff = Vector3d(bounds[0].x() - transformedPoint.x(), 0, 0);
+		}
+		if (bounds[1].x() - transformedPoint.x() < dist) {
+			dist = bounds[1].x() - transformedPoint.x();
+			diff = Vector3d(bounds[1].x() - transformedPoint.x(), 0, 0);
+		}
+		if (transformedPoint.y() - bounds[0].y() < dist) {
+			dist = transformedPoint.y() - bounds[0].y();
+			diff = Vector3d(0, bounds[0].y() - transformedPoint.y(), 0);
+		}
+		if (bounds[1].y() - transformedPoint.y() < dist) {
+			dist = bounds[1].y() - transformedPoint.y();
+			diff = Vector3d(0, bounds[1].y() - transformedPoint.y(), 0);
+		}
+		if (transformedPoint.z() - bounds[0].z() < dist) {
+			dist = transformedPoint.z() - bounds[0].z();
+			diff = Vector3d(0, 0, bounds[0].z() - transformedPoint.z());
+		}
+		if (bounds[1].z() - transformedPoint.z() < dist) {
+			dist = bounds[1].z() - transformedPoint.z();
+			diff = Vector3d(0, 0, bounds[1].z() - transformedPoint.z());
+		}
+
+		if (Trans != nullptr) {
+			MTransDirection(diff, diff, Trans);
+		}
+		pointOnObject = samplePoint + diff;
+		dist = diff.length();
+
+		return 0.0 - dist;
+	}
+	else {
+		DBL px = (transformedPoint.x() > bounds[1].x()) ? bounds[1].x() : ((transformedPoint.x() < bounds[0].x()) ? bounds[0].x() : transformedPoint.x());
+		DBL py = (transformedPoint.y() > bounds[1].y()) ? bounds[1].y() : ((transformedPoint.y() < bounds[0].y()) ? bounds[0].y() : transformedPoint.y());
+		DBL pz = (transformedPoint.z() > bounds[1].z()) ? bounds[1].z() : ((transformedPoint.z() < bounds[0].z()) ? bounds[0].z() : transformedPoint.z());
+		Vector3d pt(px, py, pz);
+		Vector3d diff = pt - transformedPoint;
+		if (Trans != nullptr) {
+			MTransDirection(diff, diff, Trans);
+		}
+		pointOnObject = samplePoint + diff;
+		DBL dist = diff.length();
+
+		return dist;
+	}
+}
+
 }
 // end of namespace pov

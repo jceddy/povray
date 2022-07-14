@@ -341,6 +341,29 @@ FUNCTION_PTR Parser::Parse_DeclareFunction(TokenId *token_id, const char *fn_nam
 
 		Parse_End();
 	}
+	else if (CurrentTrueTokenId() == NEAREST_POINT_TOKEN) {
+		if (function.parameter_cnt != 0)
+			Error("Function parameters for nearest_point functions are not allowed.");
+
+		expression = FNSyntax_GetTrapExpression(3); // 3 refers to POVFPU_TrapSTable[3] = f_nearest_point [trf]
+
+		function.private_copy_method = (FNCODE_PRIVATE_COPY_METHOD)Copy_Object;
+		function.private_destroy_method = (FNCODE_PRIVATE_DESTROY_METHOD)(static_cast<void(*)(ObjectPtr)>(Destroy_Object));
+
+		Parse_Begin();
+		vector<ObjectPtr> tempObjects;
+		Parse_Bound_Clip(tempObjects, false);
+		if (tempObjects.size() != 1)
+			Error("object or object identifier expected.");
+		function.private_data = reinterpret_cast<void *>(tempObjects[0]);
+
+		Parse_End();
+
+		function.return_size = 3; // returns a 3-d point
+
+		// function type is vector function
+		*token_id = VECTFUNCT_ID_TOKEN;
+	}
     else if(CurrentTrueTokenId() == STRING_LITERAL_TOKEN)
     {
 #if (DEBUG_FLOATFUNCTION == 1)

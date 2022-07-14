@@ -2514,7 +2514,7 @@ void Mesh::Determine_Textures(Intersection *isect, bool hitinside, WeightedTextu
 }
 
 // helper functions for Proximity()
-void GetMinEdge02(DBL const& a11, DBL const& b1, std::array<DBL, 2>& p)
+inline void GetMinEdge02(DBL const& a11, DBL const& b1, std::array<DBL, 2>& p)
 {
 	p[0] = ZERO;
 	if (b1 >= ZERO)

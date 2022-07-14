@@ -631,5 +631,28 @@ bool Plane::Intersect_BBox(BBoxDirection, const BBoxVector3d&, const BBoxVector3
     return true;
 }
 
+DBL Plane::Proximity(Vector3d &pointOnObject, const Vector3d &samplePoint, TraceThreadData *threaddata) {
+	Vector3d transformedPoint = samplePoint;
+	if (Trans != nullptr) {
+		MInvTransPoint(transformedPoint, transformedPoint, Trans);
+	}
+	
+	DBL dist = dot(Normal_Vector, transformedPoint) - Distance;
+	Vector3d diff = -dist * Normal_Vector;
+
+	if (Trans != nullptr) {
+		MTransDirection(diff, diff, Trans);
+	}
+	pointOnObject = samplePoint + diff;
+	dist = diff.length();
+
+	if (Inside(samplePoint, threaddata)) {
+		return 0.0 - dist;
+	}
+	else {
+		return dist;
+	}
+}
+
 }
 // end of namespace pov
