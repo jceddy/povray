@@ -445,8 +445,8 @@ bool Intersect_BBox_Tree(std::vector<BBOX_TREE*>& Boxes, BBOX_TREE *Root, const 
 
 		Make_min_max_from_BBox(nodemins, nodemaxs, Node->BBox);
 		if (maxs.x() >= nodemins.x() && nodemaxs.x() >= mins.x() &&
-			maxs.x() >= nodemins.x() && nodemaxs.x() >= mins.x() &&
-			maxs.x() >= nodemins.x() && nodemaxs.x() >= mins.x()) {
+			maxs.y() >= nodemins.y() && nodemaxs.y() >= mins.y() &&
+			maxs.z() >= nodemins.z() && nodemaxs.z() >= mins.z()) {
 
 			if (Node->Entries) {
 				for (int i = 0; i < Node->Entries; i++) {
