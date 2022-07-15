@@ -92,6 +92,9 @@ const DBL DEPTH_TOLERANCE = 1.0e-8;
 /* If |x| < ZERO_TOLERANCE x is assumed to be 0. */
 const DBL ZERO_TOLERANCE = 1.0e-10;
 
+const DBL MAX_PROXIMITY_DISTANCE = 20000000000.0;
+const DBL ZERO = 0.0;
+
 
 
 /*****************************************************************************
@@ -978,6 +981,69 @@ bool Polygon::in_polygon(int number, Vector2d *points, DBL u, DBL  v)
     }
 
     return(inside_flag);
+}
+
+DBL Polygon::Proximity(Vector3d &pointOnObject, const Vector3d &samplePoint, TraceThreadData *threaddata) {
+	if (Data == nullptr || Data->Number < 1) {
+		return MAX_PROXIMITY_DISTANCE;
+	}
+
+	Vector3d transformedPoint = samplePoint;
+	if (Trans != nullptr) {
+		MInvTransPoint(transformedPoint, transformedPoint, Trans);
+	}
+	
+	Vector3d pt;
+	DBL tx = transformedPoint.x();
+	DBL ty = transformedPoint.y();
+	if (in_polygon(Data->Number, Data->Points, tx, ty)) {
+		pt = Vector3d(tx, ty, ZERO);
+	}
+	else {
+		DBL nearestNormsqr = MAX_PROXIMITY_DISTANCE;
+
+		Vector2d p(tx, ty);
+		Vector2d pB = Data->Points[Data->Number - 1];
+		for (int i = 0; i < Data->Number; i++) {
+			Vector2d q;
+			Vector2d pA = pB;
+			pB = Data->Points[i];
+			Vector2d pAB = pB - pA;
+			DBL DD = pAB.lengthSqr();
+			Vector2d edge;
+			if (DD > 0) {
+				edge = pAB / DD;
+			}
+			else {
+				edge = Vector2d(ZERO, ZERO);
+			}
+
+			DBL t = dot((p - pA), edge);
+			if (t <= ZERO) {
+				q = pA;
+			}
+			else if (t < 1) {
+				q = (1 - t) * pA + t * pB;
+			}
+			else {
+				q = pB;
+			}
+
+			DBL qq = (q - p).lengthSqr();
+			if (qq < nearestNormsqr) {
+				pt = Vector3d(q[X], q[Y], ZERO);
+				nearestNormsqr = qq;
+			}
+		}
+	}
+
+	Vector3d direction = pt - transformedPoint;
+	if (Trans != nullptr) {
+		MTransDirection(direction, direction, Trans);
+	}
+
+	pointOnObject = samplePoint + direction;
+	return direction.length();
 }
 
 }
