@@ -93,6 +93,12 @@ class Torus : public ObjectBase
         virtual void Scale(const Vector3d&, const TRANSFORM *) override;
         virtual void Transform(const TRANSFORM *) override;
         virtual void Compute_BBox() override;
+
+		/// Get the proximity of a point to the torus.
+		/// pointOnObject will be populated with the nearest point on the object's surface to the samplePoint.
+		/// The method returns the proximity (distance), which is the length of the vector from samplePoint to pointOnObject.
+		virtual DBL Proximity(Vector3d &pointOnObject, const Vector3d &samplePoint, TraceThreadData *threaddata) override;
+
     protected:
         int Intersect(const BasicRay& ray, DBL *Depth, RenderStatistics& stats) const;
         bool Test_Thick_Cylinder(const Vector3d& P, const Vector3d& D, DBL h1, DBL h2, DBL r1, DBL r2) const;

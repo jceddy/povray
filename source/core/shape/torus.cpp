@@ -81,6 +81,8 @@ const DBL DEPTH_TOLERANCE = 1.0e-4;
 
 const DBL ROOT_TOLERANCE = 1.0e-4;
 
+const DBL ZERO = 0.0;
+
 
 //******************************************************************************
 
@@ -1137,6 +1139,33 @@ void Torus::CalcUV(const Vector3d& IPoint, Vector2d& Result) const
 
     Result[U] = u;
     Result[V] = v;
+}
+
+DBL Torus::Proximity(Vector3d &pointOnObject, const Vector3d &samplePoint, TraceThreadData *threaddata) {
+	Vector3d transformedPoint = samplePoint;
+	if (Trans != nullptr) {
+		MInvTransPoint(transformedPoint, transformedPoint, Trans);
+	}
+
+	// find nearest point to circle with radius MajorRadius centered in x-z plane
+	DBL l = Vector2d(transformedPoint[X], transformedPoint[Z]).length();
+	Vector3d q = Vector3d(MajorRadius * transformedPoint[X] / l, ZERO, MajorRadius * transformedPoint[Z] / l);
+	Vector3d pt = q + MinorRadius * (transformedPoint - q).normalized();
+	Vector3d diff = pt - transformedPoint;
+
+	if (Trans != nullptr) {
+		MTransDirection(diff, diff, Trans);
+	}
+
+	pointOnObject = samplePoint + diff;
+	DBL dist = diff.length();
+
+	if (Inside(samplePoint, threaddata)) {
+		return 0.0 - dist;
+	}
+	else {
+		return dist;
+	}
 }
 
 }
