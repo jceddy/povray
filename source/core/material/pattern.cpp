@@ -7954,7 +7954,7 @@ DBL ProximityPattern::EvaluateRaw(const Vector3d& EPoint, const Intersection *pI
 	if (pObject != nullptr)
 	{
 		Vector3d pointOnObject;
-		return abs(pObject->Proximity(pointOnObject, EPoint, pThread));
+		return min(abs(pObject->Proximity(pointOnObject, EPoint, pThread)), 1.0);
 	}
 
 	return 0.0;
