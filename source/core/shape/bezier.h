@@ -129,6 +129,11 @@ class BicubicPatch final : public NonsolidObject
         virtual void Compute_BBox() override;
 
         void Precompute_Patch_Values();
+
+		/// Get the proximity of a point to the bicubic patch.
+		/// pointOnObject will be populated with the nearest point on the object's surface to the samplePoint.
+		/// The method returns the proximity (distance), which is the length of the vector from samplePoint to pointOnObject.
+		virtual DBL Proximity(Vector3d &pointOnObject, const Vector3d &samplePoint, TraceThreadData *threaddata) override;
     protected:
         typedef Vector3d TripleVector3d[3];
         typedef DBL      TripleDouble[3];
@@ -142,12 +147,15 @@ class BicubicPatch final : public NonsolidObject
         bool flat_enough(const ControlPoints *) const;
         static void bezier_bounding_sphere(const ControlPoints *, Vector3d&, DBL *);
         int bezier_subpatch_intersect(const BasicRay&, const ControlPoints *, DBL, DBL, DBL, DBL, IStack&, TraceThreadData *Thread);
+		DBL bezier_subpatch_distance(Vector3d&, const Vector3d&, const ControlPoints *, TraceThreadData *Thread);
         static void bezier_split_left_right(const ControlPoints *, ControlPoints *, ControlPoints *);
         static void bezier_split_up_down(const ControlPoints *, ControlPoints *, ControlPoints *);
         int bezier_subdivider(const BasicRay&, const ControlPoints *, DBL, DBL, DBL, DBL, int, IStack&, TraceThreadData *Thread);
+		DBL bezier_distance_subdivider(Vector3d&, const Vector3d&, const ControlPoints *, int, TraceThreadData *Thread);
         static void bezier_tree_deleter(BEZIER_NODE *Node);
         BEZIER_NODE *bezier_tree_builder(const ControlPoints *, DBL u0, DBL u1, DBL v0, DBL v1, int depth, int& max_depth_reached);
         int bezier_tree_walker(const BasicRay&, const BEZIER_NODE *, IStack&, TraceThreadData *Thread);
+		DBL bezier_distance_walker(Vector3d&, const Vector3d&, const BEZIER_NODE *, TraceThreadData *Thread);
         static BEZIER_NODE *create_new_bezier_node(void);
         static BEZIER_VERTICES *create_bezier_vertex_block(void);
         static BEZIER_CHILDREN *create_bezier_child_block(void);

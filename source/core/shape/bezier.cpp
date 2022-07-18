@@ -43,6 +43,7 @@
 
 // C++ standard header files
 #include <algorithm>
+#include <array>
 
 // POV-Ray header files (base module)
 #include "base/pov_err.h"
@@ -72,6 +73,11 @@ const DBL BEZIER_TOLERANCE = 1.0e-5;
 
 #define BEZIER_INTERIOR_NODE 0
 #define BEZIER_LEAF_NODE 1
+
+const DBL MAX_PROXIMITY_DISTANCE = 20000000000.0;
+const DBL ZERO = 0.0;
+const DBL ONE = 1.0;
+const DBL TINY_TOLERANCE = 1e-8;
 
 
 /*****************************************************************************
@@ -932,6 +938,250 @@ int BicubicPatch::bezier_subpatch_intersect(const BasicRay &ray, const ControlPo
 
 
 
+/*****************************************************************************
+*
+* FUNCTION
+*
+*   bezier_subpatch_distance
+*
+* INPUT
+*
+* OUTPUT
+*
+* RETURNS
+*
+* AUTHOR
+*
+*   Joseph Eddy
+*
+* DESCRIPTION
+*
+*   -
+*
+* CHANGES
+*
+*   -
+*
+******************************************************************************/
+
+// helper methods
+inline void GetMinEdge02(DBL const& a11, DBL const& b1, std::array<DBL, 2>& p)
+{
+	p[0] = ZERO;
+	if (b1 >= ZERO)
+	{
+		p[1] = ZERO;
+	}
+	else if (a11 + b1 <= ZERO)
+	{
+		p[1] = ONE;
+	}
+	else
+	{
+		p[1] = -b1 / a11;
+	}
+}
+
+inline void GetMinEdge12(DBL const& a01, DBL const& a11, DBL const& b1,
+	DBL const& f10, DBL const& f01, std::array<DBL, 2>& p)
+{
+	DBL h0 = a01 + b1 - f10;
+	if (h0 >= ZERO)
+	{
+		p[1] = ZERO;
+	}
+	else
+	{
+		DBL h1 = a11 + b1 - f01;
+		if (h1 <= ZERO)
+		{
+			p[1] = ONE;
+		}
+		else
+		{
+			p[1] = h0 / (h0 - h1);
+		}
+	}
+	p[0] = ONE - p[1];
+}
+
+inline void GetMinInterior(std::array<DBL, 2> const& p0, DBL const& h0,
+	std::array<DBL, 2> const& p1, DBL const& h1, std::array<DBL, 2>& p)
+{
+	DBL z = h0 / (h0 - h1);
+	DBL omz = ONE - z;
+	p[0] = omz * p0[0] + z * p1[0];
+	p[1] = omz * p0[1] + z * p1[1];
+}
+
+inline DBL NearestOnTriangle(Vector3d &Out, const Vector3d &SamplePoint, const Vector3d &P1, const Vector3d &P2, const Vector3d &P3) {
+	Vector3d diff = SamplePoint - P1;
+	Vector3d edge0 = P2 - P1;
+	Vector3d edge1 = P3 - P1;
+	DBL a00 = dot(edge0, edge0);
+	DBL a01 = dot(edge0, edge1);
+	DBL a11 = dot(edge1, edge1);
+	DBL b0 = -dot(diff, edge0);
+	DBL b1 = -dot(diff, edge1);
+
+	DBL f00 = b0;
+	DBL f10 = b0 + a00;
+	DBL f01 = b0 + a01;
+
+	std::array<DBL, 2> p0{}, p1{}, p{};
+	DBL dt1{}, h0{}, h1{};
+
+	if (f00 >= ZERO)
+	{
+		if (f01 >= ZERO)
+		{
+			// (1) p0 = (0,0), p1 = (0,1), H(z) = G(L(z))
+			GetMinEdge02(a11, b1, p);
+		}
+		else
+		{
+			// (2) p0 = (0,t10), p1 = (t01,1-t01),
+			// H(z) = (t11 - t10)*G(L(z))
+			p0[0] = ZERO;
+			p0[1] = f00 / (f00 - f01);
+			p1[0] = f01 / (f01 - f10);
+			p1[1] = ONE - p1[0];
+			dt1 = p1[1] - p0[1];
+			h0 = dt1 * (a11 * p0[1] + b1);
+			if (h0 >= ZERO)
+			{
+				GetMinEdge02(a11, b1, p);
+			}
+			else
+			{
+				h1 = dt1 * (a01 * p1[0] + a11 * p1[1] + b1);
+				if (h1 <= ZERO)
+				{
+					GetMinEdge12(a01, a11, b1, f10, f01, p);
+				}
+				else
+				{
+					GetMinInterior(p0, h0, p1, h1, p);
+				}
+			}
+		}
+	}
+	else if (f01 <= ZERO)
+	{
+		if (f10 <= ZERO)
+		{
+			// (3) p0 = (1,0), p1 = (0,1), H(z) = G(L(z)) - F(L(z))
+			GetMinEdge12(a01, a11, b1, f10, f01, p);
+		}
+		else
+		{
+			// (4) p0 = (t00,0), p1 = (t01,1-t01), H(z) = t11*G(L(z))
+			p0[0] = f00 / (f00 - f10);
+			p0[1] = ZERO;
+			p1[0] = f01 / (f01 - f10);
+			p1[1] = ONE - p1[0];
+			h0 = p1[1] * (a01 * p0[0] + b1);
+			if (h0 >= ZERO)
+			{
+				p = p0;  // GetMinEdge01
+			}
+			else
+			{
+				h1 = p1[1] * (a01 * p1[0] + a11 * p1[1] + b1);
+				if (h1 <= ZERO)
+				{
+					GetMinEdge12(a01, a11, b1, f10, f01, p);
+				}
+				else
+				{
+					GetMinInterior(p0, h0, p1, h1, p);
+				}
+			}
+		}
+	}
+	else if (f10 <= ZERO)
+	{
+		// (5) p0 = (0,t10), p1 = (t01,1-t01),
+		// H(z) = (t11 - t10)*G(L(z))
+		p0[0] = ZERO;
+		p0[1] = f00 / (f00 - f01);
+		p1[0] = f01 / (f01 - f10);
+		p1[1] = ONE - p1[0];
+		dt1 = p1[1] - p0[1];
+		h0 = dt1 * (a11 * p0[1] + b1);
+		if (h0 >= ZERO)
+		{
+			GetMinEdge02(a11, b1, p);
+		}
+		else
+		{
+			h1 = dt1 * (a01 * p1[0] + a11 * p1[1] + b1);
+			if (h1 <= ZERO)
+			{
+				GetMinEdge12(a01, a11, b1, f10, f01, p);
+			}
+			else
+			{
+				GetMinInterior(p0, h0, p1, h1, p);
+			}
+		}
+	}
+	else
+	{
+		// (6) p0 = (t00,0), p1 = (0,t11), H(z) = t11*G(L(z))
+		p0[0] = f00 / (f00 - f10);
+		p0[1] = ZERO;
+		p1[0] = ZERO;
+		p1[1] = f00 / (f00 - f01);
+		h0 = p1[1] * (a01 * p0[0] + b1);
+		if (h0 >= ZERO)
+		{
+			p = p0;  // GetMinEdge01
+		}
+		else
+		{
+			h1 = p1[1] * (a11 * p1[1] + b1);
+			if (h1 <= ZERO)
+			{
+				GetMinEdge02(a11, b1, p);
+			}
+			else
+			{
+				GetMinInterior(p0, h0, p1, h1, p);
+			}
+		}
+	}
+
+	Out = P1 + p[0] * edge0 + p[1] * edge1;
+	return (Out - SamplePoint).length();
+}
+
+DBL BicubicPatch::bezier_subpatch_distance(Vector3d &out, const Vector3d &samplePoint, const ControlPoints *Patch, TraceThreadData *Thread)
+{
+	DBL dist = MAX_PROXIMITY_DISTANCE;
+
+	Vector3d trianglePt;
+	DBL test = NearestOnTriangle(trianglePt, samplePoint, (*Patch)[0][0], (*Patch)[0][3], (*Patch)[3][3]);
+	if (test < dist) {
+		dist = test;
+		out[X] = trianglePt[X];
+		out[Y] = trianglePt[Y];
+		out[Z] = trianglePt[Z];
+	}
+
+	test = NearestOnTriangle(trianglePt, samplePoint, (*Patch)[0][0], (*Patch)[3][3], (*Patch)[3][0]);
+	if (test < dist) {
+		dist = test;
+		out[X] = trianglePt[X];
+		out[Y] = trianglePt[Y];
+		out[Z] = trianglePt[Z];
+	}
+
+	return dist;
+}
+
+
+
 
 /*****************************************************************************
 *
@@ -1369,6 +1619,141 @@ int BicubicPatch::bezier_subdivider(const BasicRay &ray, const ControlPoints *Pa
 *
 * FUNCTION
 *
+*   bezier_distance_subdivider
+*
+* INPUT
+*
+* OUTPUT
+*
+* RETURNS
+*
+* AUTHOR
+*
+*   Joseph Eddy
+*
+* DESCRIPTION
+*
+*   -
+*
+* CHANGES
+*
+*   -
+*
+******************************************************************************/
+
+DBL BicubicPatch::bezier_distance_subdivider(Vector3d &out, const Vector3d &samplePoint, const ControlPoints *Patch, int recursion_depth, TraceThreadData *Thread)
+{
+	DBL radiusSqr;
+	DBL dist = MAX_PROXIMITY_DISTANCE;
+	ControlPoints Lower_Left, Lower_Right;
+	ControlPoints Upper_Left, Upper_Right;
+	Vector3d center;
+
+	/*
+	* If the patch is close to being flat, then just
+	* perform a ray-plane intersection test.
+	*/
+
+	if (flat_enough(Patch))
+		return bezier_subpatch_distance(out, samplePoint, Patch, Thread);
+
+	if (recursion_depth >= U_Steps)
+	{
+		if (recursion_depth >= V_Steps)
+		{
+			return bezier_subpatch_distance(out, samplePoint, Patch, Thread);
+		}
+		else
+		{
+			bezier_split_up_down(Patch, &Lower_Left, &Upper_Left);
+
+			Vector3d testpt;
+			DBL d = bezier_distance_subdivider(testpt, samplePoint, &Lower_Left, recursion_depth + 1, Thread);
+			if (d < dist) {
+				dist = d;
+				out[X] = testpt[X];
+				out[Y] = testpt[Y];
+				out[Z] = testpt[Z];
+			}
+			d = bezier_distance_subdivider(testpt, samplePoint, &Upper_Left, recursion_depth + 1, Thread);
+			if (d < dist) {
+				dist = d;
+				out[X] = testpt[X];
+				out[Y] = testpt[Y];
+				out[Z] = testpt[Z];
+			}
+		}
+	}
+	else
+	{
+		if (recursion_depth >= V_Steps)
+		{
+			bezier_split_left_right(Patch, &Lower_Left, &Lower_Right);
+
+			Vector3d testpt;
+			DBL d = bezier_distance_subdivider(testpt, samplePoint, &Lower_Left, recursion_depth + 1, Thread);
+			if (d < dist) {
+				dist = d;
+				out[X] = testpt[X];
+				out[Y] = testpt[Y];
+				out[Z] = testpt[Z];
+			}
+			d = bezier_distance_subdivider(testpt, samplePoint, &Lower_Right, recursion_depth + 1, Thread);
+			if (d < dist) {
+				dist = d;
+				out[X] = testpt[X];
+				out[Y] = testpt[Y];
+				out[Z] = testpt[Z];
+			}
+		}
+		else
+		{
+
+			bezier_split_left_right(Patch, &Lower_Left, &Lower_Right);
+			bezier_split_up_down(&Lower_Left, &Lower_Left, &Upper_Left);
+			bezier_split_up_down(&Lower_Right, &Lower_Right, &Upper_Right);
+
+			Vector3d testpt;
+			DBL d = bezier_distance_subdivider(testpt, samplePoint, &Lower_Left, recursion_depth + 1, Thread);
+			if (d < dist) {
+				dist = d;
+				out[X] = testpt[X];
+				out[Y] = testpt[Y];
+				out[Z] = testpt[Z];
+			}
+			d = bezier_distance_subdivider(testpt, samplePoint, &Upper_Left, recursion_depth + 1, Thread);
+			if (d < dist) {
+				dist = d;
+				out[X] = testpt[X];
+				out[Y] = testpt[Y];
+				out[Z] = testpt[Z];
+			}
+			d = bezier_distance_subdivider(testpt, samplePoint, &Lower_Right, recursion_depth + 1, Thread);
+			if (d < dist) {
+				dist = d;
+				out[X] = testpt[X];
+				out[Y] = testpt[Y];
+				out[Z] = testpt[Z];
+			}
+			d = bezier_distance_subdivider(testpt, samplePoint, &Upper_Right, recursion_depth + 1, Thread);
+			if (d < dist) {
+				dist = d;
+				out[X] = testpt[X];
+				out[Y] = testpt[Y];
+				out[Z] = testpt[Z];
+			}
+		}
+	}
+
+	return dist;
+}
+
+
+
+/*****************************************************************************
+*
+* FUNCTION
+*
 *   bezier_tree_deleter
 *
 * INPUT
@@ -1554,6 +1939,89 @@ int BicubicPatch::bezier_tree_walker(const BasicRay &ray, const BEZIER_NODE *Nod
     }
 
     return (cnt);
+}
+
+
+
+/*****************************************************************************
+*
+* FUNCTION
+*
+*   bezier_distance_walker
+*
+* INPUT
+*
+* OUTPUT
+*
+* RETURNS
+*
+* AUTHOR
+*
+*   Joseph Eddy
+*
+* DESCRIPTION
+*
+*   -
+*
+* CHANGES
+*
+*   -
+*
+******************************************************************************/
+
+DBL BicubicPatch::bezier_distance_walker(Vector3d &Out, const Vector3d &SamplePoint, const BEZIER_NODE *Node, TraceThreadData *Thread)
+{
+	int i;
+	DBL dist = MAX_PROXIMITY_DISTANCE;
+	const BEZIER_CHILDREN *Children;
+	const BEZIER_VERTICES *Vertices;
+
+	/*
+	* If this is an interior node then continue the descent,
+	* else do a check against the vertices.
+	*/
+
+	if (Node->Node_Type == BEZIER_INTERIOR_NODE)
+	{
+		Children = reinterpret_cast<const BEZIER_CHILDREN *>(Node->Data_Ptr);
+
+		for (i = 0; i < Node->Count; i++)
+		{
+			Vector3d testpt;
+			DBL testd = bezier_distance_walker(testpt, SamplePoint, Children->Children[i], Thread);
+			if (testd < dist) {
+				dist = testd;
+				Out = testpt;
+			}
+		}
+	}
+	else if (Node->Node_Type == BEZIER_LEAF_NODE)
+	{
+		Vertices = reinterpret_cast<const BEZIER_VERTICES *>(Node->Data_Ptr);
+
+		Vector3d triangleOut;
+		DBL d = NearestOnTriangle(triangleOut, SamplePoint, Vertices->Vertices[0], Vertices->Vertices[1], Vertices->Vertices[2]);
+		if (d < dist) {
+			dist = d;
+			Out[X] = triangleOut[X];
+			Out[Y] = triangleOut[Y];
+			Out[Z] = triangleOut[Z];
+		}
+
+		d = NearestOnTriangle(triangleOut, SamplePoint, Vertices->Vertices[0], Vertices->Vertices[2], Vertices->Vertices[3]);
+		if (d < dist) {
+			dist = d;
+			Out[X] = triangleOut[X];
+			Out[Y] = triangleOut[Y];
+			Out[Z] = triangleOut[Z];
+		}
+	}
+	else
+	{
+		throw POV_EXCEPTION_STRING("Bad Node type in bezier_distance_walker().");
+	}
+
+	return dist;
 }
 
 
@@ -2186,5 +2654,43 @@ void BicubicPatch::Compute_Texture_UV(const Vector2d& p, const Vector2d st[4], V
     t[1] = u1[1] + p[1] * (u2[1] - u1[1]);
 }
 
+DBL BicubicPatch::Proximity(Vector3d &pointOnObject, const Vector3d &samplePoint, TraceThreadData *threaddata) {
+	Vector3d transformedPoint = samplePoint;
+	Vector3d diff;
+	if (Trans != nullptr) {
+		MInvTransPoint(transformedPoint, transformedPoint, Trans);
+	}
+
+	// find nearest point to circle with radius MajorRadius centered in x-z plane
+	if (Patch_Type == 0) {
+		Vector3d closest;
+		DBL dist = bezier_distance_subdivider(closest, transformedPoint, &Control_Points, 0, threaddata);
+		diff = closest - transformedPoint;
+	}
+	else if (Patch_Type == 1) {
+		Vector3d closest;
+		DBL dist = bezier_distance_walker(closest, transformedPoint, Node_Tree, threaddata);
+		diff = closest - transformedPoint;
+	}
+	else {
+		throw POV_EXCEPTION_STRING("Bad patch type in All_Bicubic_Patch_Intersections.");
+	}
+
+	if (Trans != nullptr) {
+		MTransDirection(diff, diff, Trans);
+	}
+
+	pointOnObject = samplePoint + diff;
+	DBL dist = diff.length();
+
+	if (Inside(samplePoint, threaddata)) {
+		return 0.0 - dist;
+	}
+	else {
+		return dist;
+	}
+}
+
 }
 // end of namespace pov
+
