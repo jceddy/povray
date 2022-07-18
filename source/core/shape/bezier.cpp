@@ -1643,7 +1643,6 @@ int BicubicPatch::bezier_subdivider(const BasicRay &ray, const ControlPoints *Pa
 
 DBL BicubicPatch::bezier_distance_subdivider(Vector3d &out, const Vector3d &samplePoint, const ControlPoints *Patch, int recursion_depth, TraceThreadData *Thread)
 {
-	DBL radiusSqr;
 	DBL dist = MAX_PROXIMITY_DISTANCE;
 	ControlPoints Lower_Left, Lower_Right;
 	ControlPoints Upper_Left, Upper_Right;
@@ -2673,7 +2672,7 @@ DBL BicubicPatch::Proximity(Vector3d &pointOnObject, const Vector3d &samplePoint
 		diff = closest - transformedPoint;
 	}
 	else {
-		throw POV_EXCEPTION_STRING("Bad patch type in All_Bicubic_Patch_Intersections.");
+		throw POV_EXCEPTION_STRING("Bad patch type in Proximity.");
 	}
 
 	if (Trans != nullptr) {
