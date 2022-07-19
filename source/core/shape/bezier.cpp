@@ -2680,14 +2680,7 @@ DBL BicubicPatch::Proximity(Vector3d &pointOnObject, const Vector3d &samplePoint
 	}
 
 	pointOnObject = samplePoint + diff;
-	DBL dist = diff.length();
-
-	if (Inside(samplePoint, threaddata)) {
-		return 0.0 - dist;
-	}
-	else {
-		return dist;
-	}
+	return diff.length();
 }
 
 }
