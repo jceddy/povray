@@ -63,6 +63,7 @@
 
 // C++ standard header files
 #include <algorithm>
+#include <array>
 
 // POV-Ray header files (base module)
 #include "base/pov_err.h"
@@ -98,6 +99,11 @@ const DBL HFIELD_OFFSET = 0.001;
 
 const DBL HFIELD_TOLERANCE = 1.0e-6;
 
+const DBL MAX_PROXIMITY_DISTANCE = 20000000000.0;
+const DBL ZERO = 0.0;
+const DBL ONE = 1.0;
+const DBL TINY_TOLERANCE = 1e-8;
+
 
 //****************************************************************************
 // Local Types
@@ -122,6 +128,8 @@ struct HFData final
     HF_VAL **Map;
     HF_Normals **Normals;
     HFBlock **Block;
+	KDTree *kdTree;
+	BBOX_TREE *Tree;
 };
 
 
@@ -862,6 +870,7 @@ void HField::Compute_HField(const ImageData *image)
 {
     int x, z, max_x, max_z;
     HF_VAL min_y, max_y, temp_y;
+	pointVec vertices;
 
     /* Get height field map size. */
 
@@ -889,11 +898,14 @@ void HField::Compute_HField(const ImageData *image)
             temp_y = image_height_at(image, x, max_z - z - 1);
 
             Data->Map[z][x] = temp_y;
+			vertices.push_back(Vector3d(x, temp_y, z));
 
             min_y = min(min_y, temp_y);
             max_y = max(max_y, temp_y);
         }
     }
+
+	Data->kdTree = new KDTree(vertices);
 
     /* Resize bounding box. */
 
@@ -1247,6 +1259,8 @@ HField::HField() : ObjectBase(HFIELD_OBJECT)
 
     Data->block_width_x = 0;
     Data->block_width_z = 0;
+	
+	Data->kdTree = nullptr;
 
     Set_Flag(this, HIERARCHY_FLAG);
 }
@@ -1368,6 +1382,10 @@ HField::~HField()
 
             delete[] Data->Block;
         }
+
+		if (Data->kdTree != nullptr) {
+			delete Data->kdTree;
+		}
 
         delete Data;
     }
@@ -2088,6 +2106,268 @@ bool HField::block_traversal(const BasicRay &ray, const Vector3d& Start, IStack 
     while ((x >= 0) && (x < xmax) && (z >= 0) && (z < zmax) && (neary >= ymin) && (neary <= ymax));
 
     return(found);
+}
+
+// helper methods
+inline void GetMinEdge02(DBL const& a11, DBL const& b1, std::array<DBL, 2>& p)
+{
+	p[0] = ZERO;
+	if (b1 >= ZERO)
+	{
+		p[1] = ZERO;
+	}
+	else if (a11 + b1 <= ZERO)
+	{
+		p[1] = ONE;
+	}
+	else
+	{
+		p[1] = -b1 / a11;
+	}
+}
+
+inline void GetMinEdge12(DBL const& a01, DBL const& a11, DBL const& b1,
+	DBL const& f10, DBL const& f01, std::array<DBL, 2>& p)
+{
+	DBL h0 = a01 + b1 - f10;
+	if (h0 >= ZERO)
+	{
+		p[1] = ZERO;
+	}
+	else
+	{
+		DBL h1 = a11 + b1 - f01;
+		if (h1 <= ZERO)
+		{
+			p[1] = ONE;
+		}
+		else
+		{
+			p[1] = h0 / (h0 - h1);
+		}
+	}
+	p[0] = ONE - p[1];
+}
+
+inline void GetMinInterior(std::array<DBL, 2> const& p0, DBL const& h0,
+	std::array<DBL, 2> const& p1, DBL const& h1, std::array<DBL, 2>& p)
+{
+	DBL z = h0 / (h0 - h1);
+	DBL omz = ONE - z;
+	p[0] = omz * p0[0] + z * p1[0];
+	p[1] = omz * p0[1] + z * p1[1];
+}
+
+inline DBL NearestOnTriangle(Vector3d &Out, const Vector3d &SamplePoint, const Vector3d &P1, const Vector3d &P2, const Vector3d &P3) {
+	Vector3d diff = SamplePoint - P1;
+	Vector3d edge0 = P2 - P1;
+	Vector3d edge1 = P3 - P1;
+	DBL a00 = dot(edge0, edge0);
+	DBL a01 = dot(edge0, edge1);
+	DBL a11 = dot(edge1, edge1);
+	DBL b0 = -dot(diff, edge0);
+	DBL b1 = -dot(diff, edge1);
+
+	DBL f00 = b0;
+	DBL f10 = b0 + a00;
+	DBL f01 = b0 + a01;
+
+	std::array<DBL, 2> p0{}, p1{}, p{};
+	DBL dt1{}, h0{}, h1{};
+
+	if (f00 >= ZERO)
+	{
+		if (f01 >= ZERO)
+		{
+			// (1) p0 = (0,0), p1 = (0,1), H(z) = G(L(z))
+			GetMinEdge02(a11, b1, p);
+		}
+		else
+		{
+			// (2) p0 = (0,t10), p1 = (t01,1-t01),
+			// H(z) = (t11 - t10)*G(L(z))
+			p0[0] = ZERO;
+			p0[1] = f00 / (f00 - f01);
+			p1[0] = f01 / (f01 - f10);
+			p1[1] = ONE - p1[0];
+			dt1 = p1[1] - p0[1];
+			h0 = dt1 * (a11 * p0[1] + b1);
+			if (h0 >= ZERO)
+			{
+				GetMinEdge02(a11, b1, p);
+			}
+			else
+			{
+				h1 = dt1 * (a01 * p1[0] + a11 * p1[1] + b1);
+				if (h1 <= ZERO)
+				{
+					GetMinEdge12(a01, a11, b1, f10, f01, p);
+				}
+				else
+				{
+					GetMinInterior(p0, h0, p1, h1, p);
+				}
+			}
+		}
+	}
+	else if (f01 <= ZERO)
+	{
+		if (f10 <= ZERO)
+		{
+			// (3) p0 = (1,0), p1 = (0,1), H(z) = G(L(z)) - F(L(z))
+			GetMinEdge12(a01, a11, b1, f10, f01, p);
+		}
+		else
+		{
+			// (4) p0 = (t00,0), p1 = (t01,1-t01), H(z) = t11*G(L(z))
+			p0[0] = f00 / (f00 - f10);
+			p0[1] = ZERO;
+			p1[0] = f01 / (f01 - f10);
+			p1[1] = ONE - p1[0];
+			h0 = p1[1] * (a01 * p0[0] + b1);
+			if (h0 >= ZERO)
+			{
+				p = p0;  // GetMinEdge01
+			}
+			else
+			{
+				h1 = p1[1] * (a01 * p1[0] + a11 * p1[1] + b1);
+				if (h1 <= ZERO)
+				{
+					GetMinEdge12(a01, a11, b1, f10, f01, p);
+				}
+				else
+				{
+					GetMinInterior(p0, h0, p1, h1, p);
+				}
+			}
+		}
+	}
+	else if (f10 <= ZERO)
+	{
+		// (5) p0 = (0,t10), p1 = (t01,1-t01),
+		// H(z) = (t11 - t10)*G(L(z))
+		p0[0] = ZERO;
+		p0[1] = f00 / (f00 - f01);
+		p1[0] = f01 / (f01 - f10);
+		p1[1] = ONE - p1[0];
+		dt1 = p1[1] - p0[1];
+		h0 = dt1 * (a11 * p0[1] + b1);
+		if (h0 >= ZERO)
+		{
+			GetMinEdge02(a11, b1, p);
+		}
+		else
+		{
+			h1 = dt1 * (a01 * p1[0] + a11 * p1[1] + b1);
+			if (h1 <= ZERO)
+			{
+				GetMinEdge12(a01, a11, b1, f10, f01, p);
+			}
+			else
+			{
+				GetMinInterior(p0, h0, p1, h1, p);
+			}
+		}
+	}
+	else
+	{
+		// (6) p0 = (t00,0), p1 = (0,t11), H(z) = t11*G(L(z))
+		p0[0] = f00 / (f00 - f10);
+		p0[1] = ZERO;
+		p1[0] = ZERO;
+		p1[1] = f00 / (f00 - f01);
+		h0 = p1[1] * (a01 * p0[0] + b1);
+		if (h0 >= ZERO)
+		{
+			p = p0;  // GetMinEdge01
+		}
+		else
+		{
+			h1 = p1[1] * (a11 * p1[1] + b1);
+			if (h1 <= ZERO)
+			{
+				GetMinEdge02(a11, b1, p);
+			}
+			else
+			{
+				GetMinInterior(p0, h0, p1, h1, p);
+			}
+		}
+	}
+
+	Out = P1 + p[0] * edge0 + p[1] * edge1;
+	return (Out - SamplePoint).length();
+}
+
+DBL HField::Proximity(Vector3d &pointOnObject, const Vector3d &samplePoint, TraceThreadData *threaddata) {
+	if (Data->kdTree == nullptr) {
+		return MAX_PROXIMITY_DISTANCE;
+	}
+
+	Vector3d transformedPoint = samplePoint;
+	Vector3d diff;
+	if (Trans != nullptr) {
+		MInvTransPoint(transformedPoint, transformedPoint, Trans);
+	}
+	DBL px = transformedPoint[X];
+	DBL py = transformedPoint[Y];
+	DBL pz = transformedPoint[Z];
+
+	Vector3d nearest = Data->kdTree->nearest_point(transformedPoint);
+
+	if (py < Data->min_y || py > Data->max_y) {
+		diff = nearest - transformedPoint;
+	}
+	else {
+		DBL dist = (nearest - transformedPoint).length();
+		DBL xmin = px - dist;
+		DBL zmin = pz - dist;
+		DBL xmax = px + dist;
+		DBL zmax = pz + dist;
+		int minX = max(0, int(xmin) - 1);
+		int maxX = min(Data->max_x, int(xmax) + 2);
+		int minZ = max(0, int(zmin) - 1);
+		int maxZ = min(Data->max_z, int(zmax) + 2);
+
+		dist = MAX_PROXIMITY_DISTANCE;
+		for (int z = minZ; z < maxZ - 1; z++)
+		{
+			for (int x = minX; x < maxX - 1; x++)
+			{
+				Vector3d p1(x, Data->Map[z][x], z);
+				Vector3d p2(x + 1, Data->Map[z][x + 1], z);
+				Vector3d p3(x + 1, Data->Map[z + 1][x + 1], z + 1);
+				Vector3d p4(x, Data->Map[z + 1][x], z + 1);
+
+				Vector3d trianglePt;
+				DBL test = NearestOnTriangle(trianglePt, transformedPoint, p1, p2, p3);
+				if (test < dist) {
+					dist = test;
+					nearest[X] = trianglePt[X];
+					nearest[Y] = trianglePt[Y];
+					nearest[Z] = trianglePt[Z];
+				}
+
+				test = NearestOnTriangle(trianglePt, transformedPoint, p1, p3, p4);
+				if (test < dist) {
+					dist = test;
+					nearest[X] = trianglePt[X];
+					nearest[Y] = trianglePt[Y];
+					nearest[Z] = trianglePt[Z];
+				}
+			}
+		}
+
+		diff = nearest - transformedPoint;
+	}
+
+	if (Trans != nullptr) {
+		MTransDirection(diff, diff, Trans);
+	}
+
+	pointOnObject = samplePoint + diff;
+	return diff.length();
 }
 
 }
